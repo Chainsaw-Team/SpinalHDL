@@ -11,19 +11,26 @@ import scala.io.Source
 
 object VivadoFlow {
 
-  /**
-   * Use vivado to run eda flow
-   *
-   * @param vivadoPath      The path to vivado (e.g. /opt/Xilinx/Vivado/2019.2/bin)
-   * @param workspacePath   The temporary workspace path (e.g. /tmp/test)
-   * @param toplevelPath    The path to top level hdl file
-   * @param family          Xilinx device family (Artix 7, Kintex 7, Kintex UltraScale, Kintex UltraScale+ or Virtex UltraScale+)
-   * @param device          Xilinx device part
-   * @param frequencyTarget Target clock frequency
-   * @param processorCount  Number of processor count used
-   * @return Report
-   */
-  def apply(vivadoPath: String, workspacePath: String, rtl: Rtl, family: String, device: String, frequencyTarget: HertzNumber = null, processorCount: Int = 1): Report = {
+  /** Use vivado to run eda flow
+    *
+    * @param vivadoPath      The path to vivado (e.g. /opt/Xilinx/Vivado/2019.2/bin)
+    * @param workspacePath   The temporary workspace path (e.g. /tmp/test)
+    * @param toplevelPath    The path to top level hdl file
+    * @param family          Xilinx device family (Artix 7, Kintex 7, Kintex UltraScale, Kintex UltraScale+ or Virtex UltraScale+)
+    * @param device          Xilinx device part
+    * @param frequencyTarget Target clock frequency
+    * @param processorCount  Number of processor count used
+    * @return Report
+    */
+  def apply(
+      vivadoPath: String,
+      workspacePath: String,
+      rtl: Rtl,
+      family: String,
+      device: String,
+      frequencyTarget: HertzNumber = null,
+      processorCount: Int = 1
+  ): Report = {
     val targetPeriod = (if (frequencyTarget != null) frequencyTarget else 500 MHz).toTime
 
     val workspacePathFile = new File(workspacePath)
@@ -34,12 +41,15 @@ object VivadoFlow {
     }
 
     val isVhdl = (file: String) => file.endsWith(".vhd") || file.endsWith(".vhdl")
-    val readRtl = rtl.getRtlPaths().map(file => s"""read_${if(isVhdl(file)) "vhdl" else "verilog"} ${Paths.get(file).getFileName()}""").mkString("\n")
+    val readRtl = rtl
+      .getRtlPaths()
+      .map(file => s"""read_${if (isVhdl(file)) "vhdl" else "verilog"} ${Paths.get(file).getFileName()}""")
+      .mkString("\n")
 
     // generate tcl script
     val tcl = new java.io.FileWriter(Paths.get(workspacePath, "doit.tcl").toFile)
     tcl.write(
-s"""
+      s"""
 create_project -force project_bft_batch ./project_bft_batch -part $device
 
 add_files {${rtl.getRtlPaths().mkString(" ")}}
@@ -92,8 +102,10 @@ report_design_analysis -logic_level_distribution
 
       def getPulseSlack(): Double /*nanoseconds*/ = {
         // if not found, assume only logic is involved and do not take pulse slack into account
-        var lowest_pulse_slack : Double = 100000.0
-        val pulse_strings = "(Min Period|Low Pulse Width|High Pulse Width)(?:\\s+\\S+){5}(?:\\s+)-?(\\d+.?\\d+)+".r.findAllIn(report).toList
+        var lowest_pulse_slack: Double = 100000.0
+        val pulse_strings = "(Min Period|Low Pulse Width|High Pulse Width)(?:\\s+\\S+){5}(?:\\s+)-?(\\d+.?\\d+)+".r
+          .findAllIn(report)
+          .toList
         // iterate through pulse slack lines
         for (pulse_string <- pulse_strings) {
           // iterate through number columns
@@ -104,44 +116,50 @@ report_design_analysis -logic_level_distribution
               lowest_pulse_slack = pulse_slack_numbers.apply(2).toDouble
             }
           }
-        }       
-        return lowest_pulse_slack 
+        }
+        return lowest_pulse_slack
       }
       override def getFMax(): Double = {
         val intFind = "-?(\\d+\\.?)+".r
-        var slack = try {
-          (family match {
-            case "Artix 7" | "Kintex 7" | "Kintex UltraScale" | "Kintex UltraScale+" | "Virtex UltraScale+" =>
-              intFind.findFirstIn("-?(\\d+.?)+ns  \\(required time - arrival time\\)".r.findFirstIn(report).get).get
-          }).toDouble
-        } catch {
-          case e : Exception => -100000.0
-        }
+        var slack =
+          try {
+            (family match {
+              case "Artix 7" | "Kintex 7" | "Kintex UltraScale" | "Kintex UltraScale+" | "Virtex UltraScale+" =>
+                intFind.findFirstIn("-?(\\d+.?)+ns  \\(required time - arrival time\\)".r.findFirstIn(report).get).get
+            }).toDouble
+          } catch {
+            case e: Exception => -100000.0
+          }
         val pulse_slack = getPulseSlack()
         if (pulse_slack < slack) {
           slack = pulse_slack
         }
         return 1.0 / (targetPeriod.toDouble - slack * 1e-9)
       }
-      override def getArea(): String =  {
+      override def getArea(): String = {
         // 0, 30, 0.5, 15,5
         val intFind = "(\\d+,?\\.?\\d*)".r
-        val leArea = try {
-          family match {
-            case "Artix 7" | "Kintex 7" =>
-              intFind.findFirstIn("Slice LUTs[ ]*\\|[ ]*(\\d+,?)+".r.findFirstIn(report).get).get + " LUT " +
-              intFind.findFirstIn("Slice Registers[ ]*\\|[ ]*(\\d+,?)+".r.findFirstIn(report).get).get + " FF "
-            // Assume the the resources table is the only one with 5 columns (this is the case in Vivado 2021.2)
-            // (Not very version-proof, we should actually first look at the right table header first...)
-            case "Kintex UltraScale" | "Kintex UltraScale+" | "Virtex UltraScale+" =>
-              intFind.findFirstIn("\\| CLB LUTs[ ]*\\|([ ]*\\S+\\s+\\|){5}".r.findFirstIn(report).get).get + " LUT " +
-              intFind.findFirstIn("\\| CLB Registers[ ]*\\|([ ]*\\S+\\s+\\|){5}".r.findFirstIn(report).get).get + " FF " +
-              intFind.findFirstIn("\\| Block RAM Tile[ ]*\\|([ ]*\\S+\\s+\\|){5}".r.findFirstIn(report).get).get + " BRAM " + 
-              intFind.findFirstIn("\\| URAM[ ]*\\|([ ]*\\S+\\s+\\|){5}".r.findFirstIn(report).get).get + " URAM "
+        val leArea =
+          try {
+            family match {
+              case "Artix 7" | "Kintex 7" =>
+                intFind.findFirstIn("Slice LUTs[ ]*\\|[ ]*(\\d+,?)+".r.findFirstIn(report).get).get + " LUT " +
+                  intFind.findFirstIn("Slice Registers[ ]*\\|[ ]*(\\d+,?)+".r.findFirstIn(report).get).get + " FF "
+              // Assume the the resources table is the only one with 5 columns (this is the case in Vivado 2021.2)
+              // (Not very version-proof, we should actually first look at the right table header first...)
+              case "Kintex UltraScale" | "Kintex UltraScale+" | "Virtex UltraScale+" =>
+                intFind.findFirstIn("\\| CLB LUTs[ ]*\\|([ ]*\\S+\\s+\\|){5}".r.findFirstIn(report).get).get + " LUT " +
+                  intFind
+                    .findFirstIn("\\| CLB Registers[ ]*\\|([ ]*\\S+\\s+\\|){5}".r.findFirstIn(report).get)
+                    .get + " FF " +
+                  intFind
+                    .findFirstIn("\\| Block RAM Tile[ ]*\\|([ ]*\\S+\\s+\\|){5}".r.findFirstIn(report).get)
+                    .get + " BRAM " +
+                  intFind.findFirstIn("\\| URAM[ ]*\\|([ ]*\\S+\\s+\\|){5}".r.findFirstIn(report).get).get + " URAM "
+            }
+          } catch {
+            case e: Exception => "???"
           }
-        } catch {
-          case e : Exception => "???"
-        }
         return leArea
       }
     }
