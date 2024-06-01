@@ -39,6 +39,10 @@ package object core extends BaseTypeFactory with BaseTypeCast {
   type Module = spinal.core.Component
   type dontName = spinal.core.DontName @field
 
+  // for local build
+  case class BuildInfo(version: String, gitHash: String)
+  val Info = BuildInfo(version = "2.0.0", gitHash = "05371a565a4fc716f74a16f74dd0dcf26b137bf3")
+
   /**
     * Scala implicit
     */
