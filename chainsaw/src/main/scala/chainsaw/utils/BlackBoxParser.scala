@@ -7,45 +7,62 @@ import scala.util.matching.Regex
 object BlackBoxParser {
 
   def apply(from: File, to: File): Unit = {
+    println(s"\nparsing ${from.getName} to ${to.getName}")
     val source = Source.fromFile(from)
     val lines =
       try source.mkString
       finally source.close()
 
     val modulePattern: Regex = raw"(?s)module\s+(\w+)\s*(.*?);\s*endmodule".r
-    val inputPattern: Regex = raw"input\s+(?:\[(\d+):(\d+)\]\s*)?(\w+);".r
-    val outputPattern: Regex = raw"output\s+(?:\[(\d+):(\d+)\]\s*)?(\w+);".r
+    // TODO: keep the comment at the same line
+    val ioPattern: Regex = raw"^\s*(input|output|inout)\s*(?:\[(\d+)\s*:\s*(\d+)\])?\s*(\w+).*".r
 
     for (m <- modulePattern.findAllMatchIn(lines)) {
       val moduleName = m.group(1)
       val moduleContent = m.group(2)
+//      println(f"module content:\n $moduleContent")
 
-      def getIoDeclaration(m: Regex.Match, prefix: String) = {
-        val name = m.group(3)
+      def getIoDeclaration(m: Regex.Match) = {
+        val Seq(direction, end, start, name) = m.subgroups
         val size =
-          if (m.group(1) != null && m.group(2) != null) m.group(1).toInt - m.group(2).toInt + 1
+          if (start != null && end != null) end.toInt - start.toInt + 1
           else 1
+        // TODO: inout -> verilog
         val dataType = if (size > 1) "Bits" else "Bool"
         val bits = if (size > 1) s"$size bits" else ""
-        s"  val $name = $prefix $dataType($bits)\n"
+        val dataDefinition = direction match {
+          case "input"  => s"in $dataType($bits)"
+          case "output" => s"out $dataType($bits)"
+          case "inout"  => s"inout(Analog($dataType($bits)))"
+        }
+        val ret = s"  val $name = $dataDefinition\n"
+        print(s"$ret")
+        ret
       }
 
-      val inputs = inputPattern.findAllMatchIn(moduleContent).map(getIoDeclaration(_, "in")).toList
-      val outputs = outputPattern.findAllMatchIn(moduleContent).map(getIoDeclaration(_, "out")).toList
+      val ios: Array[String] =
+        moduleContent.split("\n").flatMap(line => ioPattern.findAllMatchIn(line).map(getIoDeclaration).toList)
 
       // TODO: infer axi interfaces(as an option)
 
       // creating SpinalHDL BlackBox
       val writer = new PrintWriter(to)
       writer.write(s"import spinal.core._\nclass $moduleName extends BlackBox {\n")
-      inputs.foreach(input => writer.write(input))
-      outputs.foreach(output => writer.write(output))
-      writer.write("  noIoPrefix()\n}\n")
+      ios.foreach(input => writer.write(input))
+      writer.write("  noIoPrefix()\n")
+      val filePathString = "\"" + from.getAbsolutePath + "\""
+      writer.write(s"  addRTLPath(raw$filePathString)\n}\n")
       writer.close()
     }
   }
 
   def main(args: Array[String]): Unit = {
+    BlackBoxParser(
+      new File(
+        "C:\\Users\\ltr\\Documents\\GitHub\\SpinalHDL\\chainsaw\\src\\main\\resources\\LDF172_1G14_ref_utf8\\sources_1\\new\\sys_top_axku062.v"
+      ),
+      new File("MysoowSysTop.scala")
+    )
     BlackBoxParser(new File("xdma.v"), new File("xdma.scala"))
   }
 }

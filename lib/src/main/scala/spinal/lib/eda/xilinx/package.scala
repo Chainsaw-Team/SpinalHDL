@@ -15,7 +15,7 @@ package object xilinx {
   object PROGEN extends VivadoTaskType // create project
   object SYNTH extends VivadoTaskType
   object IMPL extends VivadoTaskType
-  object BINGEN extends VivadoTaskType
+  object BITGEN extends VivadoTaskType
 
   class XilinxDevice(
       val family: XilinxDeviceFamily,

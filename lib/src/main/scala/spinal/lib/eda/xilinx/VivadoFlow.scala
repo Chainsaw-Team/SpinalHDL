@@ -29,7 +29,7 @@ object VivadoFlow {
       family: String,
       device: String,
       frequencyTarget: HertzNumber = null,
-      processorCount: Int = 1
+      processorCount: Int = 1,
   ): Report = {
     val targetPeriod = (if (frequencyTarget != null) frequencyTarget else 500 MHz).toTime
 

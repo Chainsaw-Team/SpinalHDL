@@ -5,9 +5,11 @@ import spinal.lib._
 import spinal.lib.blackbox.xilinx.ultrascale.IBUFDS
 import spinal.lib.com.pcie._
 import spinal.lib.com.uart._
+import spinal.lib.com.fmc._
 import spinal.lib.eda.xilinx._
 
 import java.io.File
+import scala.language.postfixOps
 
 /** ALINX Axku062 development board
   *
@@ -15,8 +17,6 @@ import java.io.File
   *   [[https://alinx.com/detail/568]] for sales information and manual
   */
 abstract class Axku062 extends Component with XilinxBoard {
-
-  println("latest version!")
 
   // pins with fixed direction
   lazy val sys_clk_p, sys_clk_n, rst_n = in Bool ()
@@ -27,21 +27,12 @@ abstract class Axku062 extends Component with XilinxBoard {
   lazy val led = out Bits (4 bits)
 
   // pins without fixed direction
-  lazy val sma_clk_p, sma_clk_n = inout Bool ()
+  lazy val sma_clk_p, sma_clk_n = inout(Analog(Bool()))
 
-  // TODO: fmc definition
-
-  //  lazy val FMC1_LPC, FMC2_LPC       = FmcLpc() // FMC-LPC
-  //  lazy val SMA_CLKIN_P, SMA_CLKIN_N = Bool()   // SMA
-  //
-  //  // enable pins
-  //  def useFmc1(asMaster: Boolean): Unit = { // Fmc1 of AXKU401 has no clock I/O
-  //    if (asMaster) FMC1_LPC.asMaster() else FMC1_LPC.asSlave()
-  //  }
-  //  def useFmc2(asMaster: Boolean, dataOnly: Boolean): Unit = {
-  //    if (asMaster) FMC2_LPC.asMaster() else FMC2_LPC.asSlave()
-  //    if (!dataOnly) FMC2_LPC.asCarrier()
-  //  }
+  lazy val fmc_hpc: Fmc =
+    master(new Fmc(FmcConfig(is_hpc = true, gigabitWidth = 8, useLa = true, useI2c = true))) // FMC-HPC
+  lazy val fmc_lpc_1, fmc_lpc_2 =
+    master(new Fmc(FmcConfig(is_hpc = false, gigabitWidth = 1, useLa = true, useI2c = true))) // FMC-LPC
 
   // board definition
   override val xdcFile: File = new File("Axku062.xdc")
@@ -51,7 +42,7 @@ abstract class Axku062 extends Component with XilinxBoard {
 
   override lazy val defaultClockDomain: ClockDomain = {
     // LVDS CLK -> single ended clk
-    val clk = IBUFDS.Lvds2Clk(sys_clk_p, sys_clk_n) // FIXME: but isn't accessible in the null component.
+    val clk = IBUFDS.Lvds2Clk(sys_clk_p, sys_clk_n)
     val clockDomainConfig: ClockDomainConfig =
       ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW)
     new ClockDomain(clock = clk, reset = rst_n, config = clockDomainConfig, frequency = FixedFrequency(device.fMax))
