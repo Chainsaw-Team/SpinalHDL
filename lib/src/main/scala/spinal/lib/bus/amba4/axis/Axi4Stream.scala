@@ -186,5 +186,18 @@ object Axi4Stream {
       userFlow.payload := stream.user
       userFlow
     }
+
+    /** Set the name of the signals to be compatible with Xilinx/ARM definition */
+    def setNameForEda() : Unit = {
+      stream.payload.data.setPartialName("tdata")
+      if (stream.payload.last != null) {stream.payload.last.setPartialName("tlast")}
+      if (stream.payload.user != null) {stream.payload.user.setPartialName("tuser")}
+      if (stream.payload.keep != null) {stream.payload.last.setPartialName("tkeep")}
+      if (stream.payload.id != null) {stream.payload.last.setPartialName("tid")}
+      if (stream.payload.dest != null) {stream.payload.last.setPartialName("tdest")}
+      stream.payload.setPartialName("")
+      stream.valid.setPartialName("tvalid")
+      stream.ready.setPartialName("tready")
+    }
   }
 }
