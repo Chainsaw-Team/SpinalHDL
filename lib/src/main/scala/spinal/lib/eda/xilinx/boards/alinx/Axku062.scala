@@ -23,7 +23,7 @@ abstract class Axku062 extends Component with XilinxBoard {
   lazy val user_key_n = in Bool ()
   lazy val pcie = slave(new Pcie(8)) // PCIe
   lazy val uart = master(Uart()) // UART
-  lazy val led_test = out Bits (2 bits)
+  lazy val led_test = out Bits (2 bits) // 0 is greed, 1 is read
   lazy val led = out Bits (4 bits)
 
   // pins without fixed direction

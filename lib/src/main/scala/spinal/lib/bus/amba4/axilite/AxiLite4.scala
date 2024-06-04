@@ -247,6 +247,43 @@ case class AxiLite4(config: AxiLite4Config) extends Bundle with IMasterSlave {
     ret.r.pipelined(r) >> this.r
     ret
   }
+
+  /** Set the name of the signals to be compatible with Xilinx/ARM definition */
+  def setNameForEda() : Unit = {
+    ar.setPartialName("")
+    ar.payload.setPartialName("")
+    ar.valid.setPartialName("arvalid")
+    ar.ready.setPartialName("arready")
+    ar.payload.addr.setPartialName("araddr")
+    ar.payload.prot.setPartialName("arprot")
+
+    aw.setPartialName("")
+    aw.payload.setPartialName("")
+    aw.valid.setPartialName("awvalid")
+    aw.ready.setPartialName("awready")
+    aw.payload.addr.setPartialName("awaddr")
+    aw.payload.prot.setPartialName("awprot")
+
+    r.setPartialName("")
+    r.payload.setPartialName("")
+    r.valid.setPartialName("rvalid")
+    r.ready.setPartialName("rready")
+    r.payload.data.setPartialName("rdata")
+    r.payload.resp.setPartialName("rresp")
+
+    w.setPartialName("")
+    w.payload.setPartialName("")
+    w.valid.setPartialName("wvalid")
+    w.ready.setPartialName("wready")
+    w.payload.data.setPartialName("wdata")
+    w.payload.strb.setPartialName("wstrb")
+
+    b.setPartialName("")
+    b.payload.setPartialName("")
+    b.valid.setPartialName("bvalid")
+    b.ready.setPartialName("bready")
+    b.payload.resp.setPartialName("bresp")
+  }
 }
 
 
