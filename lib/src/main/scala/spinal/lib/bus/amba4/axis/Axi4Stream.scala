@@ -192,9 +192,9 @@ object Axi4Stream {
       stream.payload.data.setPartialName("tdata")
       if (stream.payload.last != null) {stream.payload.last.setPartialName("tlast")}
       if (stream.payload.user != null) {stream.payload.user.setPartialName("tuser")}
-      if (stream.payload.keep != null) {stream.payload.last.setPartialName("tkeep")}
-      if (stream.payload.id != null) {stream.payload.last.setPartialName("tid")}
-      if (stream.payload.dest != null) {stream.payload.last.setPartialName("tdest")}
+      if (stream.payload.keep != null) {stream.payload.keep.setPartialName("tkeep")}
+      if (stream.payload.id != null) {stream.payload.id.setPartialName("tid")}
+      if (stream.payload.dest != null) {stream.payload.dest.setPartialName("tdest")}
       stream.payload.setPartialName("")
       stream.valid.setPartialName("tvalid")
       stream.ready.setPartialName("tready")
