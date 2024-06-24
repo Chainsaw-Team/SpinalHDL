@@ -31,8 +31,12 @@ abstract class Axku062 extends Component with XilinxBoard {
 
   lazy val fmc_hpc: Fmc =
     master(new Fmc(FmcConfig(is_hpc = true, gigabitWidth = 8, useLa = true, useI2c = true))) // FMC-HPC
-  lazy val fmc_lpc_1, fmc_lpc_2 =
-    master(new Fmc(FmcConfig(is_hpc = false, gigabitWidth = 1, useLa = true, useI2c = true))) // FMC-LPC
+  lazy val fmc_lpc_1 = master(
+    new Fmc(FmcConfig(is_hpc = false, gigabitWidth = 1, useLa = true, useI2c = true))
+  ) // FMC-LPC1
+  lazy val fmc_lpc_2 = master(
+    new Fmc(FmcConfig(is_hpc = false, gigabitWidth = 0, useLa = true, useI2c = true))
+  ) // FMC-LPC2
 
   // board definition
   override val xdcFile: File = new File("Axku062.xdc")
