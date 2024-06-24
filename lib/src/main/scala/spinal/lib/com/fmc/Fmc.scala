@@ -37,14 +37,14 @@ class Fmc(config: FmcConfig) extends Bundle with IMasterSlave {
    */
 
   if (config.is_hpc) assert(config.gigabitWidth <= 10, "HPC requires <= 10 gigabit data lanes")
-  else assert(config.gigabitWidth == 1, "LPC requires 1 gigabit data lanes")
+  else assert(config.gigabitWidth <= 1, "LPC requires <= 1 gigabit data lanes")
 
   // Gigabit Clocks, connected to GT? transceiver,width = 1 for LPC, 2 for HPC
   val GBTCLK_M2C_P, GBTCLK_M2C_N = Bits((if (config.is_hpc) 2 else 1) bits)
 
   // Gigabit Data, connected to GT? transceiver, set_property may failed on them,width = 1 for LPC, 10 for HPC
 
-  val DP_M2C_P, DP_M2C_N, DP_C2M_P, DP_C2M_N = Bits(config.gigabitWidth bits)
+  val DP_M2C_P, DP_M2C_N, DP_C2M_P, DP_C2M_N = (config.gigabitWidth > 0) generate Bits(config.gigabitWidth bits)
 
   // User Clocks
   val CLK_M2C_P, CLK_M2C_N = Bits(2 bits) // user clock for LPC, mezzanine-to-carrier
