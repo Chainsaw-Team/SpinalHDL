@@ -48,8 +48,8 @@ abstract class Axku062 extends Component with XilinxBoard {
     // LVDS CLK -> single ended clk
     val clk = IBUFDS.Lvds2Clk(sys_clk_p, sys_clk_n)
     val clockDomainConfig: ClockDomainConfig =
-      ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW)
-    new ClockDomain(clock = clk, reset = rst_n, config = clockDomainConfig, frequency = FixedFrequency(device.fMax))
+      ClockDomainConfig(clockEdge = RISING, resetKind = BOOT, resetActiveLevel = LOW)
+    new ClockDomain(clock = clk, config = clockDomainConfig, frequency = FixedFrequency(device.fMax))
   }
 
 }
