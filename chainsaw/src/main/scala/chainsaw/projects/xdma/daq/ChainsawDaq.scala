@@ -17,20 +17,25 @@ import scala.language.postfixOps
 
 case class ChainsawDaq() extends Axku062 {
 
+  // extra pins
+  val ddr4 = Ddr4Interface() // TODO: move to Axku062
+
   val peripheral = new Peripheral_wrapper()
   peripheral.sys_clk_200M := defaultClockDomain.clock
 
+  // PCIe
   peripheral.pcie_clk_clk_n := pcie.clk_n
   peripheral.pcie_clk_clk_p := pcie.clk_p
-
-  val ibuf = IBUF()
-  ibuf.I := pcie.perst
-  peripheral.pcie_rstn := ibuf.O
+  peripheral.pcie_rstn := pcie.perst
 
   peripheral.pcie_mgt_rxn := pcie.rx_n
   peripheral.pcie_mgt_rxp := pcie.rx_p
   pcie.tx_n := peripheral.pcie_mgt_txn
   pcie.tx_p := peripheral.pcie_mgt_txp
+
+  // DDR4
+  peripheral.ddr4_rtl_0 <> ddr4
+  peripheral.ddr4_rst := False
 
   val controlClockingArea = new ClockingArea(defaultClockDomain) {
     val registerSpace = ChainsawDaqRegisterSpace(peripheral.m_axi_lite_user)
@@ -40,6 +45,7 @@ case class ChainsawDaq() extends Axku062 {
 
     led.clearAll()
     led(0) := pcieHeartBeat.msb
+    led(1) := peripheral.ddr4_init_done
   }
 
 }

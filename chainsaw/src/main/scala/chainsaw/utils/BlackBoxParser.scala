@@ -5,7 +5,6 @@ import java.io._
 import scala.collection.mutable.ArrayBuffer
 import scala.util.matching.Regex
 
-
 object BlackBoxParser {
 
   case class IoDefinition(
@@ -23,14 +22,19 @@ object BlackBoxParser {
       }
       s"  val $name = $dataDefinition\n"
     }
+    // interface recognitions
     def isAxiLite: Boolean = name.toLowerCase().contains("axi_lite")
-    def isAxiStream: Boolean = name.contains("AXIS")
+    def isAxiStream: Boolean = name.toLowerCase().contains("AXIS")
     def isNotAxi: Boolean = !isAxiLite && !isAxiStream
+    def isDdr4: Boolean = name.toLowerCase().contains("ddr4_rtl")
+    def isNotInterface = isNotAxi && !isDdr4
 
     def getAxiName: String = {
       val index = name.lastIndexOf("_")
       if (index != -1) name.substring(0, index) else name
     }
+
+    def getDdr4Name:String = name.split("_").take(3).mkString("_")
   }
 
   def apply(from: File, to: File): Unit = {
@@ -60,7 +64,20 @@ object BlackBoxParser {
 
       val lines = moduleContent.split("\n")
       val definitions: Array[IoDefinition] = lines.flatMap(line => ioPattern.findAllMatchIn(line).map(getIoDefinition))
-      val definitionsRaw = definitions.filter(_.isNotAxi)
+      val definitionsRaw = definitions.filter(_.isNotInterface)
+
+      // TODO: infer DDR4 interface for different data width
+      // DDR4
+      val ddr4CandidateGroups = definitions.filter(_.isDdr4).groupBy(_.getDdr4Name)
+      val ddr4Declarations = ddr4CandidateGroups.map { case (name, definitions) =>
+        println(f"found DDR4 interface element: \n\t${definitions.map(_.name).mkString("\n\t")}")
+        val config = s"val $name = Ddr4Interface()"
+        println(s"inferred AXI4-Lite interface config: $config")
+        s"""
+           |  $config
+           |""".stripMargin
+      }
+
       // TODO: infer axi interfaces(as an option), including AXI4, AXI4-Lite, AXI4-Stream
       // AXI4-Lite
       val axi4LiteCandidateGroups = definitions.filter(_.isAxiLite).groupBy(_.getAxiName)
@@ -78,6 +95,7 @@ object BlackBoxParser {
           |  $name.setNameForEda()
           |""".stripMargin
       }
+
       // AXI4-Stream
       val axi4StreamCandidateGroups = definitions.filter(_.isAxiStream).groupBy(_.getAxiName)
       val axi4StreamDeclarations = axi4StreamCandidateGroups.map { case (name, definitions) =>
@@ -111,7 +129,7 @@ object BlackBoxParser {
       }
 
       val declarations: Array[String] =
-        definitionsRaw.map(_.getDeclaration) ++ axi4LiteDeclarations ++ axi4StreamDeclarations
+        definitionsRaw.map(_.getDeclaration) ++ axi4LiteDeclarations ++ axi4StreamDeclarations ++ ddr4Declarations
 
       // creating SpinalHDL BlackBox
       val writer = new PrintWriter(to)
