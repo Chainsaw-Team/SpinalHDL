@@ -66,5 +66,7 @@ case class ChainsawDaq() extends Axku062 {
   fmc_hpc.LA_N(3).asOutput() := adcSyncN
 
   // SMA output
+//  fmc_lpc_2.LA_P(0).asOutput()
+//  fmc_lpc_2.LA_N(0).asOutput()
 
 }
