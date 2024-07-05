@@ -67,14 +67,6 @@ object BlackBoxParser {
       }
       declarations ++= definitions.map(_.getDeclaration)
 
-//      // parsing interfaces
-//      val ddr4Declarations = Ddr4Parser(definitions)
-//      val axi4LiteDeclarations = Axi4LiteParser(definitions)
-//      val axi4StreamDeclarations = Axi4StreamParser(definitions)
-
-//      val declarations =
-//        definitions.map(_.getDeclaration) ++ axi4LiteDeclarations ++ axi4StreamDeclarations ++ ddr4Declarations
-
       // creating SpinalHDL BlackBox
       val writer = new PrintWriter(to)
       val imports =

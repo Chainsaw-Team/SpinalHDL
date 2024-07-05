@@ -26,18 +26,20 @@ import scala.language.postfixOps
 case class ChainsawDaq() extends Axku062 {
 
   // pins configuration
-  val ddr4 = Ddr4Interface() // TODO: move to Axku062
+  val ddr4 = Ddr4Interface()
   // avoid "not driven" error
   fmc_hpc.DP_C2M_P.setAsDirectionLess() // disable unused output
   fmc_hpc.DP_C2M_N.setAsDirectionLess()
 
   val peripheral = new Peripheral_wrapper()
-  peripheral.sys_clk_200M := sys_clk_200M
+  peripheral.sys_clk_200M := defaultClockDomain.clock
 
   // PCIe
   peripheral.pcie_rstn := pcie.perst
   peripheral.pcie_clk_clk_n := pcie.clk_n
   peripheral.pcie_clk_clk_p := pcie.clk_p
+
+  Seq(pcie.tx_n, pcie.tx_p, pcie.rx_n, pcie.rx_p).foreach(_.setWidth(4))
 
   peripheral.pcie_mgt_rxn := pcie.rx_n
   peripheral.pcie_mgt_rxp := pcie.rx_p
@@ -66,16 +68,16 @@ case class ChainsawDaq() extends Axku062 {
   val controlClockingArea = new ClockingArea(pcieClockDomain) {
 
     // register space
-    val registerSpace = ChainsawDaqRegisterSpace(peripheral.m_axi_lite_user)
+    val registerSpace = ChainsawDaqRegisterSpace(peripheral.pcie_axi_lite_user)
 
-//    // HMC7044 controller
-//    val hmc7044Resetn = fmc_hpc.LA_N(7).asOutput()
-//    fmc_hpc.LA_P(15).asOutput() := False // HMC7044 sync,disabled
-//    fmc_hpc.LA_P(7).asOutput() := peripheral.hmc7044_sclk
-//    fmc_hpc.LA_P(9).asOutput() := peripheral.hmc7044_slen
-//    fmc_hpc.LA_N(9).asInOut() <> peripheral.hmc7044_sdio
-//    val hmc7044Gpio4 = fmc_hpc.LA_P(11).asInput()
-//    val hmc7044Gpio3 = fmc_hpc.LA_P(12).asInput()
+    // HMC7044 controller in BlockDesign
+    val hmc7044Resetn = fmc_hpc.LA_N(7).asOutput()
+    fmc_hpc.LA_P(15).asOutput() := False // HMC7044 sync,disabled
+    fmc_hpc.LA_P(7).asOutput() := peripheral.hmc7044_sclk
+    fmc_hpc.LA_P(9).asOutput() := peripheral.hmc7044_slen
+    fmc_hpc.LA_N(9).asInOut() <> peripheral.hmc7044_sdio
+    val hmc7044Gpio4 = fmc_hpc.LA_P(11).asInput()
+    val hmc7044Gpio3 = fmc_hpc.LA_P(12).asInput()
 
 //    // AD9695 controller
 //    val ad9695Ctrl = AdiSpiCtrl(100)
@@ -89,14 +91,14 @@ case class ChainsawDaq() extends Axku062 {
 
 //    // reset logic
 //    peripheral.jesd204_rx_reset := registerSpace.jesd204Reset
-//    hmc7044Resetn := !registerSpace.hmc7044Reset
+    hmc7044Resetn := !registerSpace.hmc7044Reset
 //    ad9695PowerDown := registerSpace.ad9695Reset
 
     // LEDs for system status
 
     led_test.clearAll()
     led_test(0) := peripheral.pcie_interrupt // interrupt, green
-    led_test(1) := !bootClockingArea.bootRstn // booting, red
+//    led_test(1) := !bootClockingArea.bootRstn // booting, red
 
     led.clearAll()
     led(0) := peripheral.pcie_link_up
