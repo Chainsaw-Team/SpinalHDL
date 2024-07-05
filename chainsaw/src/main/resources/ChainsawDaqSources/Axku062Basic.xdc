@@ -33,11 +33,16 @@ set_property PACKAGE_PIN E12 [get_ports {led[0]}]
 set_property PACKAGE_PIN F12 [get_ports {led[1]}]
 set_property PACKAGE_PIN L9 [get_ports {led[2]}]
 set_property PACKAGE_PIN H23 [get_ports {led[3]}]
+set_property PACKAGE_PIN E13 [get_ports {led_test[0]}]
+set_property PACKAGE_PIN F13 [get_ports {led_test[1]}]
 
 set_property IOSTANDARD LVCMOS18 [get_ports led[0]]
 set_property IOSTANDARD LVCMOS18 [get_ports led[1]]
 set_property IOSTANDARD LVCMOS18 [get_ports led[2]]
-set_property IOSTANDARD LVCMOS33 [get_ports led[3]]
+# the only LED in BANK65
+set_property IOSTANDARD LVCMOS33 [get_ports led[3]] 
+set_property IOSTANDARD LVCMOS18 [get_ports led_test[0]]
+set_property IOSTANDARD LVCMOS18 [get_ports led_test[1]]
 
 # user key, active-low
 set_property PACKAGE_PIN N23 [get_ports user_key_n]
