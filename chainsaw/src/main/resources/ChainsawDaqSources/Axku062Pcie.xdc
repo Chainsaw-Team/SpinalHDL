@@ -3,8 +3,8 @@
 ###############################################################################
 create_clock -name sys_clk -period 10 [get_ports pcie_clk_p]
 
-set_false_path -through [get_pins xdma_0_i/inst/pcie3_ip_i/inst/pcie3_uscale_top_inst/pcie3_uscale_wrapper_inst/PCIE_3_1_inst/CFGMAX*]
-set_false_path -through [get_nets xdma_0_i/inst/cfg_max*]
+#set_false_path -through [get_pins xdma_0_i/inst/pcie3_ip_i/inst/pcie3_uscale_top_inst/pcie3_uscale_wrapper_inst/PCIE_3_1_inst/CFGMAX*]
+#set_false_path -through [get_nets xdma_0_i/inst/cfg_max*]
 
 set_false_path -from [get_ports pcie_perst]
 ###############################################################################
