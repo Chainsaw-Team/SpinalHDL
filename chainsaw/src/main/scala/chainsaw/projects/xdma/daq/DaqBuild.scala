@@ -14,7 +14,6 @@ object GenerateSubModules extends App {
       defaultConfigForClockDomains = ClockDomainConfig(resetActiveLevel = LOW, resetKind = SYNC),
       targetDirectory = rtlSourceDir.getAbsolutePath
     )
-  config.generateVerilog(Hmc7044Ctrl(50)) // sclk frequency = 125MHz / 50 = 1MHz < 2.5MHz < 10MHz
   config.generateVerilog(AdiSpiCtrl(50)) // sclk frequency = 125MHz / 50 = 1MHz < 2.5MHz < 10MHz
   config.generateVerilog(ChainsawDaqDataPath())
 
