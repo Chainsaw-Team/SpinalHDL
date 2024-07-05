@@ -10,11 +10,13 @@ object GenerateSubModules extends App {
 
   val config =
     SpinalConfig(
-      defaultConfigForClockDomains = ClockDomainConfig(resetActiveLevel = HIGH, resetKind = SYNC),
+      defaultConfigForClockDomains = ClockDomainConfig(resetActiveLevel = LOW, resetKind = SYNC),
       targetDirectory = rtlSourceDir.getAbsolutePath
     )
-  config.generateVerilog(Hmc7044Ctrl(100)) // sclk frequency = 250MHz / 100 = 1MHz < 2.5MHz < 10MHz
-  config.generateVerilog(AdiSpiCtrl(100)) // sclk frequency = 250MHz / 100 = 1MHz < 2.5MHz < 10MHz
+  config.generateVerilog(Hmc7044Ctrl(50)) // sclk frequency = 125MHz / 50 = 1MHz < 2.5MHz < 10MHz
+  config.generateVerilog(AdiSpiCtrl(50)) // sclk frequency = 125MHz / 50 = 1MHz < 2.5MHz < 10MHz
+//  config.generateVerilog(ChainsawDaqDataPath()) // sclk frequency = 125MHz / 50 = 1MHz < 2.5MHz < 10MHz
+  SpinalVerilog(ChainsawDaqDataPath())
 }
 
 // task 2: in Vivado Block Design: 1. add RTL module 2. connect interfaces 3. edit address
