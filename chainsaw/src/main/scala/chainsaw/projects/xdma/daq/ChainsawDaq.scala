@@ -4,7 +4,19 @@ import spinal.core._
 import spinal.lib.blackbox.xilinx.ultrascale.{IBUFDS, OBUFDS}
 import spinal.lib.eda.xilinx.boards.alinx.Axku062
 
+// save vivado project by generating .tcl script
 // write_project_tcl -force C:/Users/lsfan/Documents/GitHub/SpinalHDL/chainsaw/src/main/resources/ChainsawDaqSources/CreateChainsawDaq.tcl
+
+// generating memory(flash) configuration file
+// write_cfgmem -force -format bin -size 32 -interface SPIx8 -loadbit {up 0x00000000 "C:/Users/lsfan/Desktop/ChainsawDaq/ChainsawDaq.runs/impl_1/ChainsawDaq.bit" } -file "C:/Users/lsfan/Desktop/ChainsawDaq/ChainsawDaq.runs/impl_1/ChainsawDaq.bin"
+
+// binding user interfaces with clocks
+// set_property CONFIG.CLK_DOMAIN Peripheral_jesd204_0_rx_core_clk_out [get_bd_intf_pins /ChainsawDaqDataPath_0/dataIn]
+// set_property CONFIG.FREQ_HZ 250000000 [get_bd_intf_pins /ChainsawDaqDataPath_0/dataIn]
+// set_property CONFIG.CLK_DOMAIN Peripheral_jesd204_0_rx_core_clk_out [get_bd_intf_pins /ChainsawDaqDataPath_0/dataOut]
+// set_property CONFIG.FREQ_HZ 250000000 [get_bd_intf_pins /ChainsawDaqDataPath_0/dataOut]
+// set_property CONFIG.CLK_DOMAIN Peripheral_xdma_0_0_axi_aclk [get_bd_intf_pins /ChainsawDaqDataPath_0/controlIn]
+// set_property CONFIG.FREQ_HZ 250000000 [get_bd_intf_pins /ChainsawDaqDataPath_0/controlIn]
 
 import scala.language.postfixOps
 
@@ -49,6 +61,7 @@ case class ChainsawDaq() extends Axku062 {
 
   // AD9695 controller
   fmc_hpc.LA_P(5).asOutput() := peripheral.ad9695PowerDown
+
   fmc_hpc.LA_N(5).asOutput() := peripheral.ad9695_sclk
   fmc_hpc.LA_N(4).asOutput() := peripheral.ad9695_slen
   fmc_hpc.LA_P(4).asInOut() := peripheral.ad9695_sdio
@@ -68,5 +81,12 @@ case class ChainsawDaq() extends Axku062 {
   // SMA output
 //  fmc_lpc_2.LA_P(0).asOutput()
 //  fmc_lpc_2.LA_N(0).asOutput()
+
+  // LEDs
+  led.clearAll()
+  led(0) := peripheral.pcie_link_up
+  led(1) := peripheral.ddr4_init_done
+  // TODO: qpll lock and sync
+
 
 }

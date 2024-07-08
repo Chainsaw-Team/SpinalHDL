@@ -19,7 +19,7 @@ object GenerateSubModules extends App {
 
 }
 
-// task 2: in Vivado Block Design: 1. add RTL module 2. connect interfaces 3. edit address
+// task 2: in Vivado Block Design: 1. add RTL module 2. connect interfaces 3. binding user interfaces with clocks 4. edit address
 
 // task 3: create block design wrapper
 object BuildBlackBox extends App {

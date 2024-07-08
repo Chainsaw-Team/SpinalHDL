@@ -122,14 +122,14 @@ case class ChainsawDaqDataPath() extends Component {
     import controlClockingArea._
 
     // remap rx data to get meaningful data
-    def mapper(bitsIn: Bits, base: Int) = { // TODO: order of segments?
+    def mapper(bitsIn: Bits, base: Int) = { // earlier data in higher bits (63:48 is segment0, 47:32 is segment1, etc.)
       (0 until 4)
         .map { i =>
           val baseHigher = base + i * 8
           val baseLower = base + (i + 4) * 8
           val all = bitsIn(baseHigher + 7 downto baseHigher) ## bitsIn(baseLower + 7 downto baseLower)
           val controlBits = all.takeLow(2)
-          B("00") ## all.takeHigh(14)
+          all.takeHigh(14) ## B("00")
         }
         .reduce(_ ## _)
     }
@@ -156,7 +156,7 @@ case class ChainsawDaqDataPath() extends Component {
       val duration = RegInit(False)
       when(RegNext(durationStart).rise())(duration.set())
       when(RegNext(durationEnd).rise())(duration.clear())
-      (duration, durationEnd)
+      (duration, RegNext(durationEnd))
     }
 
     val (pulse0Valid, _) = getDuration(U(0, 32 bits), getControlData(pulseWidth))
@@ -172,9 +172,9 @@ case class ChainsawDaqDataPath() extends Component {
         dataOut.payload.data(i * 16, 16 bits) := RegNext((counterForTest.value @@ U(i, 2 bits)).asBits)
       )
       dataOut.valid.set()
-      dataOut.last := RegNext(counterForTest.willOverflow)
+      dataOut.last := RegNext(counterForTest.willOverflow) // packet length = (1 << 16) * 2 = 131072B
     }.otherwise { // JESD204 -> AXI DMA
-      val data = Mux(getControlData(channelSelection.asBool), channel0Segments, channel1Segments)
+      val data = Mux(getControlData(channelSelection.asBool), channel1Segments, channel0Segments)
       dataOut.payload.data := data
       dataOut.valid := dataValid
       dataOut.last := dataLast
