@@ -29,7 +29,7 @@ case class ChainsawDaqDataPath() extends Component {
   val dataOut = master(Axi4Stream(dataOutConfig))
 
   // other outputs
-  val channel0Probe, channel1Probe = out SInt (14 bits) // output to ILA
+  val channel0Probe, channel1Probe = out SInt (16 bits) // output to ILA
   val pulse0, pulse1 = out Bool () // pulse output to SMA
   val hmc7044Resetn, ad9695PowerDown, jesd204Reset = out Bool () // reset output to submodules
 
@@ -137,9 +137,6 @@ case class ChainsawDaqDataPath() extends Component {
     val channel0Segments = mapper(dataIn.payload.data, 0)
     val channel1Segments = mapper(dataIn.payload.data, 64)
 
-    channel0Probe assignFromBits channel0Segments.takeLow(14)
-    channel1Probe assignFromBits channel1Segments.takeLow(14)
-
     // pulse generator
     val counterWidth = 20
     println(
@@ -166,19 +163,38 @@ case class ChainsawDaqDataPath() extends Component {
       getDuration(getControlData(postTriggerLength), getControlData(postTriggerLength) + getControlData(pulseLength))
 
     // dataOut builder
-    val counterForTest = Counter(1 << 14, inc = dataIn.fire) // counter for test mode
-    when(getControlData(controlClockingArea.testMode)) {
+    // TODO: monitor data loss
+
+    // free-running stream as data source data source is actually not subject to the backpressure of the ready signal
+    val streamRaw = Stream(Fragment(Bits(64 bits)))
+    streamRaw.valid := dataValid
+    streamRaw.last := dataLast
+
+    val counterForTest = Counter(1 << 14) // counter for test mode
+    when(!dataValid)(counterForTest.clear())
+    when(dataValid)(counterForTest.increment())
+
+    val packetIdWidth = 10
+    val counterForPacket = Counter(1 << packetIdWidth, inc = dataLast)
+
+    when(getControlData(controlClockingArea.testMode)) { // test data -> AXI DMA
       (0 until 4).foreach(i =>
-        dataOut.payload.data(i * 16, 16 bits) := RegNext((counterForTest.value @@ U(i, 2 bits)).asBits)
+        streamRaw.fragment(i * 16, 16 bits) := RegNext((counterForTest.value @@ U(i, 2 bits)).asBits)
       )
-      dataOut.valid.set()
-      dataOut.last := RegNext(counterForTest.willOverflow) // packet length = (1 << 16) * 2 = 131072B
     }.otherwise { // JESD204 -> AXI DMA
-      val data = Mux(getControlData(channelSelection.asBool), channel1Segments, channel0Segments)
-      dataOut.payload.data := data
-      dataOut.valid := dataValid
-      dataOut.last := dataLast
+      streamRaw.fragment := Mux(getControlData(channelSelection.asBool), channel1Segments, channel0Segments)
     }
+
+    val header = counterForPacket ## B(0, (64 - packetIdWidth) bits)
+    val streamWithHeader = streamRaw.insertHeader(header)
+    val streamBuffered = streamWithHeader.queue(1024) // buffer between free-running & standard stream interface
+
+
+    // TODO: method driving AXI4-Stream with Stream[Bits] or Stream[Fragment[Bits]]
+    dataOut.valid := streamBuffered.valid
+    dataOut.payload.last := streamBuffered.last
+    dataOut.payload.data := streamBuffered.fragment
+    streamBuffered.ready := dataOut.ready
 
     // pulse output
     pulse0 := pulse0Valid
@@ -186,6 +202,15 @@ case class ChainsawDaqDataPath() extends Component {
 
     // TODO: header insertion
     // TODO: linear fix
+    // TODO: may need buffer between free-running streamOutWithHeader and dataOut
+
+    // debug
+    channel0Probe assignFromBits channel0Segments.takeLow(16)
+    channel1Probe assignFromBits channel1Segments.takeLow(16)
+    val counterValue = out UInt (14 bits)
+    counterValue := counterForTest.value
+    val dataLoss = out Bool ()
+    dataLoss := streamRaw.valid && !streamRaw.ready // when cyclic scatter gather DMA stars, this should always be deasserted
 
   }
 

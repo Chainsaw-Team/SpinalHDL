@@ -86,7 +86,10 @@ case class ChainsawDaq() extends Axku062 {
   led.clearAll()
   led(0) := peripheral.pcie_link_up
   led(1) := peripheral.ddr4_init_done
-  // TODO: qpll lock and sync
+  led(2) := peripheral.jesd204_qpll_lock
+  led(3) := peripheral.jesd204_rx_sync
+
+  led_test.clearAll()
 
 
 }
