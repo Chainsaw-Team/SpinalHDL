@@ -4,6 +4,8 @@ import spinal.core._
 import spinal.lib.blackbox.xilinx.ultrascale.{IBUFDS, OBUFDS}
 import spinal.lib.eda.xilinx.boards.alinx.Axku062
 
+// TODO: FL1010 & GPU module
+
 // save vivado project by generating .tcl script
 // write_project_tcl -force C:/Users/lsfan/Documents/GitHub/SpinalHDL/chainsaw/src/main/resources/ChainsawDaqSources/CreateChainsawDaq.tcl
 
@@ -79,8 +81,12 @@ case class ChainsawDaq() extends Axku062 {
   fmc_hpc.LA_N(3).asOutput() := adcSyncN
 
   // SMA output
-//  fmc_lpc_2.LA_P(0).asOutput()
-//  fmc_lpc_2.LA_N(0).asOutput()
+  fmc_lpc_2.LA_P(17).asOutput() := peripheral.pulse0 // top of FL1010 J2 socket
+  fmc_lpc_2.LA_N(17).asOutput() := False
+  fmc_lpc_2.LA_P(20).asOutput() := peripheral.pulse1
+  fmc_lpc_2.LA_N(20).asOutput() := False
+
+  // GPS IO
 
   // LEDs
   led.clearAll()
