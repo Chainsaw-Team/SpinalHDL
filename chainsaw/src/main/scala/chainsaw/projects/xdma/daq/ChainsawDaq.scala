@@ -10,7 +10,7 @@ import spinal.lib.eda.xilinx.boards.alinx.Axku062
 // write_project_tcl -force C:/Users/lsfan/Documents/GitHub/SpinalHDL/chainsaw/src/main/resources/ChainsawDaqSources/CreateChainsawDaq.tcl
 
 // generating memory(flash) configuration file
-// write_cfgmem -force -format bin -size 32 -interface SPIx8 -loadbit {up 0x00000000 "C:/Users/lsfan/Desktop/ChainsawDaq/ChainsawDaq.runs/impl_1/ChainsawDaq.bit" } -file "C:/Users/lsfan/Desktop/ChainsawDaq/ChainsawDaq.runs/impl_1/ChainsawDaq.bin"
+// write_cfgmem  -format mcs -size 32 -interface SPIx8 -loadbit {up 0x00000000 "C:/Users/lsfan/Desktop/ChainsawDaq/1GHz/ChainsawDaq.bit" } -file "C:/Users/lsfan/Desktop/ChainsawDaq/1GHz/ChainsawDaq.mcs"
 
 // binding user interfaces with clocks
 // set_property CONFIG.CLK_DOMAIN Peripheral_jesd204_0_rx_core_clk_out [get_bd_intf_pins /ChainsawDaqDataPath_0/dataIn]
