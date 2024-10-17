@@ -26,7 +26,9 @@ set_property IOSTANDARD LVCMOS33 [get_ports rst_n]
 # UART
 
 # SMA
-
+set_property PACKAGE_PIN G12 [get_ports {SMA_CLK_P}]
+set_property PACKAGE_PIN H12 [get_ports {SMA_CLK_N}]
+set_property IOSTANDARD LVCMOS18 [get_ports SMA_CLK_*]
 
 # LED
 set_property PACKAGE_PIN E12 [get_ports {led[0]}]

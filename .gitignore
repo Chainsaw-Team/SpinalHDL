@@ -81,3 +81,11 @@ command
 sim/yolo/rtl/__simulation_def.v
 sim/simulation_plugins/*
 !sim/simulation_plugins/.gitignore
+/chainsaw/src/main/resources/Axku5DaqSources/
+
+# for Vivado projects, do version control for .tcl files only
+/chainsaw/src/main/resources/VivadoProjects/*
+/chainsaw/src/main/resources/VivadoProjects/**/*
+
+!/chainsaw/src/main/resources/VivadoProjects/*.tcl
+!/chainsaw/src/main/resources/VivadoProjects/**/*.tcl

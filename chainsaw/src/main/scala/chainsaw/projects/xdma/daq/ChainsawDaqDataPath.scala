@@ -1,21 +1,23 @@
 package chainsaw.projects.xdma.daq
 
 import spinal.core._
+import spinal.core.sim._
 import spinal.lib._
 import spinal.lib.bus.amba4.axilite._
 import spinal.lib.bus.amba4.axis._
 import spinal.lib.bus.misc.SizeMapping
 import spinal.lib.bus.regif.AccessType._
 import spinal.lib.bus.regif._
-import spinal.core._
-import spinal.core.sim._
-import spinal.lib._
-import spinal.lib.sim._
-import spinal.lib.fsm._
-import spinal.lib.bus._
 
 import scala.language.postfixOps
 
+/** This module is the datapath of ChainsawDaq, implementing following functions:
+ *  1. generate a pair of period & width adjustable pulse
+ *  2. encapsulate data from JESD204 into frames synced with the pulse generated
+ *  3. control reset
+ *  4.
+ *
+ */
 case class ChainsawDaqDataPath() extends Component {
 
   // clock and reset inputs
@@ -120,6 +122,7 @@ case class ChainsawDaqDataPath() extends Component {
   ad9695PowerDown := controlClockingArea.ad9695Reset
   jesd204Reset := controlClockingArea.jesd204Reset
 
+
   def getControlData[T <: Data](ctrl: T) = { // control clock domain -> data clock domain
     ctrl.addTag(crossClockDomain)
     Delay(ctrl, 3)
@@ -149,11 +152,18 @@ case class ChainsawDaqDataPath() extends Component {
           val controlBits = all.takeLow(2)
           all.takeHigh(14) ## B("00")
         }
+        .reverse
         .reduce(_ ## _)
     }
 
-    val channel0Segments = mapper(dataIn.payload.data, 0)
-    val channel1Segments = mapper(dataIn.payload.data, 64)
+    val channel0Segments: Bits = mapper(dataIn.payload.data, 0)
+
+    // a pipelined calculating circuit example:
+    //    val original = mapper(dataIn.payload.data, 0)
+    //    val step0Result = original.subdivideIn(16 bits).map(_.asSInt).map(sint => RegNext(sint * 2)).reduce(_ @@ _) // step0
+    //    val channel0Segments = step0Result
+
+    val channel1Segments: Bits = mapper(dataIn.payload.data, 64)
     channel0Probe assignFromBits channel0Segments.takeLow(16)
     channel1Probe assignFromBits channel1Segments.takeLow(16)
 

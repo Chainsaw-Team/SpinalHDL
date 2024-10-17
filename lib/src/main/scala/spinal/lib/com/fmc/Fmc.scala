@@ -28,7 +28,7 @@ case class FmcConfig(
 /** FMC(Fpga Mezzanine Card) interface
   * @param config FMC configuration
   */
-class Fmc(config: FmcConfig) extends Bundle with IMasterSlave {
+class Fmc(val config: FmcConfig) extends Bundle with IMasterSlave {
 
   /* bi-directional signals are declared as Sequences of Analog(Bools),the direction should be set in application logic
   e.g.
@@ -40,15 +40,16 @@ class Fmc(config: FmcConfig) extends Bundle with IMasterSlave {
   else assert(config.gigabitWidth <= 1, "LPC requires <= 1 gigabit data lanes")
 
   // Gigabit Clocks, connected to GT? transceiver,width = 1 for LPC, 2 for HPC
-  val GBTCLK_M2C_P, GBTCLK_M2C_N = (config.gigabitWidth > 0) generate Bits((if (config.is_hpc) 2 else 1) bits)
+  val widthGbtClk = if (config.is_hpc) 2 else 1
+  val GBTCLK_M2C_P, GBTCLK_M2C_N = (0 until widthGbtClk).map (_=> (config.gigabitWidth > 0) generate Bool())
 
   // Gigabit Data, connected to GT? transceiver, set_property may failed on them,width = 1 for LPC, 10 for HPC
   val DP_M2C_P, DP_M2C_N, DP_C2M_P, DP_C2M_N = (config.gigabitWidth > 0) generate Bits(config.gigabitWidth bits)
 
   // User Clocks
-  val CLK_M2C_P, CLK_M2C_N = Bits(2 bits) // user clock for LPC, mezzanine-to-carrier
+  val CLK_M2C_P, CLK_M2C_N = (0 until 2).map(_ => Bool()) // user clock for LPC, mezzanine-to-carrier
   val CLK_DIR = config.useBidir generate Bool() // determine the direction of CLK_BIDIR
-  val CLK_BIDIR_P, CLK_BIDIR_N = config.useBidir generate Bits(2 bits) // extra user clock for HPC, bi-directional
+  val CLK_BIDIR_P, CLK_BIDIR_N = (0 until 2).map(_ => config.useBidir generate Bool()) // extra user clock for HPC, bi-directional
 
   // User Data, can be used as single-ended/pairs, bi-directional, CC for clock capable
   val LA_P, LA_N = (0 until 34).map(_ => config.useLa generate Analog(Bool())) // user data for LPC, 00,01,17,18 are CC
@@ -59,9 +60,8 @@ class Fmc(config: FmcConfig) extends Bundle with IMasterSlave {
   val SDA, SCL = config.useI2c generate Analog(Bool()) // I2C serial clock & data
 
   override def asMaster(): Unit = {
-    in(GBTCLK_M2C_P, GBTCLK_M2C_N, DP_M2C_P, DP_M2C_N, CLK_M2C_P, CLK_M2C_N) // M2C as input
+    in(DP_M2C_P, DP_M2C_N) // M2C as input
     out(DP_C2M_P, DP_C2M_N) // C2M as output
-    out(CLK_DIR) // TODO: direction?
   }
 
 }

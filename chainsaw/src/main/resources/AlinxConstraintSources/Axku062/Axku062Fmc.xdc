@@ -5,10 +5,10 @@
 ###############################################################################
 
 # gigabit clocks
-set_property PACKAGE_PIN M5 [get_ports {fmc_hpc_GBTCLK_M2C_N[0]}]
-set_property PACKAGE_PIN M6 [get_ports {fmc_hpc_GBTCLK_M2C_P[0]}]
-set_property PACKAGE_PIN H6 [get_ports {fmc_hpc_GBTCLK_M2C_P[1]}]
-set_property PACKAGE_PIN H5 [get_ports {fmc_hpc_GBTCLK_M2C_N[1]}]
+set_property PACKAGE_PIN M5 [get_ports {fmc_hpc_GBTCLK_M2C_N_0}]
+set_property PACKAGE_PIN M6 [get_ports {fmc_hpc_GBTCLK_M2C_P_0}]
+set_property PACKAGE_PIN H6 [get_ports {fmc_hpc_GBTCLK_M2C_P_1}]
+set_property PACKAGE_PIN H5 [get_ports {fmc_hpc_GBTCLK_M2C_N_1}]
 
 # gigabit data, starting from GTHE3 @ X1Y12
 set_property PACKAGE_PIN M2 [get_ports {fmc_hpc_DP_M2C_P[0]}]
@@ -180,10 +180,10 @@ set_property PACKAGE_PIN L12 [get_ports fmc_hpc_SDA]
 ###############################################################################
 
 # user clocks
-set_property PACKAGE_PIN AA23 [get_ports {fmc_lpc_1_CLK_M2C_N[0]}]
-set_property PACKAGE_PIN Y23 [get_ports {fmc_lpc_1_CLK_M2C_P[0]}]
-set_property PACKAGE_PIN AB31 [get_ports {fmc_lpc_1_CLK_M2C_N[1]}]
-set_property PACKAGE_PIN AB30 [get_ports {fmc_lpc_1_CLK_M2C_P[1]}]
+set_property PACKAGE_PIN AA23 [get_ports {fmc_lpc_1_CLK_M2C_N_0}]
+set_property PACKAGE_PIN Y23 [get_ports {fmc_lpc_1_CLK_M2C_P_0}]
+set_property PACKAGE_PIN AB31 [get_ports {fmc_lpc_1_CLK_M2C_N_1}]
+set_property PACKAGE_PIN AB30 [get_ports {fmc_lpc_1_CLK_M2C_P_1}]
 
 # user data LA
 set_property PACKAGE_PIN W24 [get_ports fmc_lpc_1_LA_N_0]
@@ -273,10 +273,10 @@ set_property PACKAGE_PIN AB21 [get_ports fmc_lpc_1_SDA]
 ###############################################################################
 
 # user clocks
-set_property PACKAGE_PIN N26 [get_ports {fmc_lpc_2_CLK_M2C_N[0]}]
-set_property PACKAGE_PIN P26  [get_ports {fmc_lpc_2_CLK_M2C_P[0]}]
-set_property PACKAGE_PIN AH12 [get_ports {fmc_lpc_2_CLK_M2C_N[1]}]
-set_property PACKAGE_PIN AG12 [get_ports {fmc_lpc_2_CLK_M2C_P[1]}]
+set_property PACKAGE_PIN N26 [get_ports {fmc_lpc_2_CLK_M2C_N_0}]
+set_property PACKAGE_PIN P26  [get_ports {fmc_lpc_2_CLK_M2C_P_0}]
+set_property PACKAGE_PIN AH12 [get_ports {fmc_lpc_2_CLK_M2C_N_1}]
+set_property PACKAGE_PIN AG12 [get_ports {fmc_lpc_2_CLK_M2C_P_1}]
 
 # user data LA, 00,01,17,18 are CC compatible
 set_property PACKAGE_PIN P25 [get_ports fmc_lpc_2_LA_N_0]
@@ -369,11 +369,5 @@ set_property IOSTANDARD LVCMOS33 [get_ports fmc_lpc_2_CLK_*]
 # project-specific constraints
 ###############################################################################
 
-# LVDS pairs in ChainsawDaq project
-set_property IOSTANDARD LVDS [get_ports fmc_hpc_LA_P_0]
-set_property IOSTANDARD LVDS [get_ports fmc_hpc_LA_N_0]
-set_property IOSTANDARD LVDS [get_ports fmc_hpc_LA_P_1]
-set_property IOSTANDARD LVDS [get_ports fmc_hpc_LA_N_1]
-set_property IOSTANDARD LVDS [get_ports fmc_hpc_LA_P_3]
-set_property IOSTANDARD LVDS [get_ports fmc_hpc_LA_N_3]
+
 

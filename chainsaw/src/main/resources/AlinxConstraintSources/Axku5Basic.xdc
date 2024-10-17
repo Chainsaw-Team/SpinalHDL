@@ -1,0 +1,68 @@
+###############################################################################
+# User Flash Programming Settings
+###############################################################################
+set_property CONFIG_MODE SPIx8 [current_design]
+set_property BITSTREAM.CONFIG.SPI_BUSWIDTH 8 [current_design]
+set_property CONFIG_VOLTAGE 1.8 [current_design]
+set_property BITSTREAM.GENERAL.COMPRESS TRUE [current_design]
+set_property BITSTREAM.CONFIG.CONFIGRATE 85.0 [current_design]
+set_property BITSTREAM.CONFIG.SPI_32BIT_ADDR YES [current_design]
+set_property BITSTREAM.CONFIG.SPI_FALL_EDGE YES [current_design]
+
+# system clock from on-board oscillator
+set_property PACKAGE_PIN AC13 [get_ports sys_clk_p]
+set_property PACKAGE_PIN AC14 [get_ports sys_clk_n]
+set_property IOSTANDARD DIFF_SSTL12 [get_ports sys_clk_p]
+set_property IOSTANDARD DIFF_SSTL12 [get_ports sys_clk_n]
+
+# user LED
+set_property PACKAGE_PIN J12 [get_ports {led[0]}]
+set_property PACKAGE_PIN H14 [get_ports {led[1]}]
+set_property PACKAGE_PIN F13 [get_ports {led[2]}]
+set_property PACKAGE_PIN H12 [get_ports {led[3]}]
+set_property IOSTANDARD LVCMOS33 [get_ports led*]
+
+# user key
+set_property PACKAGE_PIN J14 [get_ports {user_key_n[0]}]
+set_property PACKAGE_PIN J15 [get_ports {user_key_n[1]}]
+set_property PACKAGE_PIN J13 [get_ports {user_key_n[2]}]
+set_property PACKAGE_PIN H13 [get_ports {user_key_n[3]}]
+set_property IOSTANDARD LVCMOS33 [get_ports user_key_*]
+
+# user 40pin
+set_property PACKAGE_PIN A10 [get_ports {user_40pin_IO_N_0}]
+set_property PACKAGE_PIN B10 [get_ports {user_40pin_IO_P_0}]
+set_property PACKAGE_PIN B11 [get_ports {user_40pin_IO_N_1}]
+set_property PACKAGE_PIN C11 [get_ports {user_40pin_IO_P_1}]
+set_property PACKAGE_PIN E10 [get_ports {user_40pin_IO_N_2}]
+set_property PACKAGE_PIN E11 [get_ports {user_40pin_IO_P_2}]
+set_property PACKAGE_PIN A9 [get_ports {user_40pin_IO_N_3}]
+set_property PACKAGE_PIN B9 [get_ports {user_40pin_IO_P_3}]
+set_property PACKAGE_PIN D10 [get_ports {user_40pin_IO_N_4}]
+set_property PACKAGE_PIN D11 [get_ports {user_40pin_IO_P_4}]
+set_property PACKAGE_PIN C9 [get_ports {user_40pin_IO_N_5}]
+set_property PACKAGE_PIN D9 [get_ports {user_40pin_IO_P_5}]
+set_property PACKAGE_PIN F9 [get_ports {user_40pin_IO_N_6}]
+set_property PACKAGE_PIN F10 [get_ports {user_40pin_IO_P_6}]
+set_property PACKAGE_PIN G9 [get_ports {user_40pin_IO_N_7}]
+set_property PACKAGE_PIN G10 [get_ports {user_40pin_IO_P_7}]
+set_property PACKAGE_PIN H9 [get_ports {user_40pin_IO_N_8}]
+set_property PACKAGE_PIN J9 [get_ports {user_40pin_IO_P_8}]
+set_property PACKAGE_PIN J10 [get_ports {user_40pin_IO_N_9}]
+set_property PACKAGE_PIN J11 [get_ports {user_40pin_IO_P_9}]
+set_property PACKAGE_PIN G11 [get_ports {user_40pin_IO_N_10}]
+set_property PACKAGE_PIN H11 [get_ports {user_40pin_IO_P_10}]
+set_property PACKAGE_PIN K9 [get_ports {user_40pin_IO_N_11}]
+set_property PACKAGE_PIN K10 [get_ports {user_40pin_IO_P_11}]
+set_property PACKAGE_PIN B12 [get_ports {user_40pin_IO_N_12}]
+set_property PACKAGE_PIN C12 [get_ports {user_40pin_IO_P_12}]
+set_property PACKAGE_PIN E12 [get_ports {user_40pin_IO_N_13}]
+set_property PACKAGE_PIN E13 [get_ports {user_40pin_IO_P_13}]
+set_property PACKAGE_PIN F12 [get_ports {user_40pin_IO_N_14}]
+set_property PACKAGE_PIN G12 [get_ports {user_40pin_IO_P_14}]
+set_property PACKAGE_PIN A12 [get_ports {user_40pin_IO_N_15}]
+set_property PACKAGE_PIN A13 [get_ports {user_40pin_IO_P_15}]
+set_property PACKAGE_PIN D13 [get_ports {user_40pin_IO_N_16}]
+set_property PACKAGE_PIN D14 [get_ports {user_40pin_IO_P_16}]
+set_property IOSTANDARD LVCMOS33 [get_ports user_40pin_IO_*]
+
