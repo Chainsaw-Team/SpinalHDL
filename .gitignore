@@ -84,8 +84,6 @@ sim/simulation_plugins/*
 /chainsaw/src/main/resources/Axku5DaqSources/
 
 # for Vivado projects, do version control for .tcl files only
-/chainsaw/src/main/resources/VivadoProjects/*
-/chainsaw/src/main/resources/VivadoProjects/**/*
+/chainsaw/src/main/resources/VivadoProjects
 
-!/chainsaw/src/main/resources/VivadoProjects/*.tcl
-!/chainsaw/src/main/resources/VivadoProjects/**/*.tcl
+
