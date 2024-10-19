@@ -1,6 +1,5 @@
 package chainsaw.projects.xdma.daq
 
-import chainsaw.projects.xdma.axku5Daq.MysoowFmc
 import spinal.core._
 import spinal.lib.CounterFreeRun
 import spinal.lib.blackbox.xilinx.ultrascale.{IBUFDS, OBUFDS}
@@ -8,17 +7,22 @@ import spinal.lib.eda.xilinx.boards.alinx.Axku062
 
 // TODO: FL1010 & GPU module
 // useful tcl commands
+
 // generate memory configuration file
 // write_cfgmem  -format bin -size 32 -interface SPIx8 -loadbit {up 0x00000000 "C:/Users/lsfan/Desktop/Axku062Daq/Axku062Daq.runs/impl_1/Axku062Daq.bit" } -force -file "C:/Users/lsfan/Desktop/Axku062Daq/Axku062Daq.runs/impl_1/Axku062Daq.bin"
+
 // save project
-// write_project_tcl -force C:/Users/lsfan/Documents/GitHub/SpinalHDL/chainsaw/src/main/resources/VivadoProjects/Axku062Daq/<project name>.tcl
+// write_project_tcl -force ../<project name>.tcl
+
 // # binding clock domains
 // set_property CONFIG.CLK_DOMAIN Peripheral_PCIe_0_axi_aclk [get_bd_intf_pins /Datapath/controlIn]
 // set_property CONFIG.FREQ_HZ 125000000 [get_bd_intf_pins /Datapath/controlIn]
-// set_property CONFIG.CLK_DOMAIN Peripheral_util_ds_buf_0_0_IBUF_DS_ODIV2 [get_bd_intf_pins /Datapath/dataIn]
+// set_property CONFIG.CLK_DOMAIN Peripheral_jesd204_buffer_0_IBUF_DS_ODIV2 [get_bd_intf_pins /Datapath/dataIn]
 // set_property CONFIG.FREQ_HZ 250000000 [get_bd_intf_pins /Datapath/dataIn]
-// set_property CONFIG.CLK_DOMAIN Peripheral_util_ds_buf_0_0_IBUF_DS_ODIV2 [get_bd_intf_pins /Datapath/dataOut]
+// set_property CONFIG.CLK_DOMAIN Peripheral_jesd204_buffer_0_IBUF_DS_ODIV2 [get_bd_intf_pins /Datapath/dataOut]
 // set_property CONFIG.FREQ_HZ 250000000 [get_bd_intf_pins /Datapath/dataOut]
+
+
 import scala.language.postfixOps
 
 case class Axku062Daq() extends Axku062 {

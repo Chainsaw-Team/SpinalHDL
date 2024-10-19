@@ -1,14 +1,23 @@
-package chainsaw.projects.xdma.axku5Daq
+package chainsaw.projects.xdma.daq
+
 import spinal.core._
 import spinal.lib._
 import spinal.lib.blackbox.xilinx.ultrascale.{IBUFDS, OBUFDS}
+
+//set_property CONFIG.CLK_DOMAIN Axku5Peripheral_PCIe_0_axi_aclk [get_bd_intf_pins /ChainsawDaqDataPath_0/controlIn]
+//set_property CONFIG.FREQ_HZ 125000000 [get_bd_intf_pins /ChainsawDaqDataPath_0/controlIn]
+//set_property CONFIG.CLK_DOMAIN Axku5Peripheral_jesd204_buffer_0_IBUF_DS_ODIV2 [get_bd_intf_pins /ChainsawDaqDataPath_0/dataIn]
+//set_property CONFIG.FREQ_HZ 250000000 [get_bd_intf_pins /ChainsawDaqDataPath_0/dataIn]
+//set_property CONFIG.CLK_DOMAIN Axku5Peripheral_jesd204_buffer_0_IBUF_DS_ODIV2 [get_bd_intf_pins /ChainsawDaqDataPath_0/dataOut]
+//set_property CONFIG.FREQ_HZ 250000000 [get_bd_intf_pins /ChainsawDaqDataPath_0/dataOut]
+
 
 //
 // write_cfgmem  -format bin -size 64 -interface SPIx8 -loadbit {up 0x00000000 "C:/Users/lsfan/Desktop/Axku062Daq/Axku062Daq.runs/impl_1/Axku062Daq.bit" } -force
 
 case class Axku5Daq() extends Axku5 {
 
-  val peripheral = new Peripheral_wrapper()
+  val peripheral = new Axku5Peripheral_wrapper()
 
   // PCIe
   Seq(pcie.tx_n, pcie.tx_p, pcie.rx_n, pcie.rx_p).foreach(_.setWidth(4))
@@ -96,3 +105,4 @@ case class Axku5Daq() extends Axku5 {
 
 
 }
+

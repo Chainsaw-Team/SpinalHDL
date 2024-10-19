@@ -1,4 +1,4 @@
-package chainsaw.projects.xdma.axku5Daq
+package chainsaw.projects.xdma.daq
 
 import spinal.core._
 import spinal.lib.com.fmc.Fmc

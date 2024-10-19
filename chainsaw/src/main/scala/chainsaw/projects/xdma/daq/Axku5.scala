@@ -1,12 +1,11 @@
-package chainsaw.projects.xdma.axku5Daq
+package chainsaw.projects.xdma.daq
 
-import chainsaw.projects.xdma.daq.{Alinx40Pin, Ddr4Interface}
 import spinal.core._
 import spinal.lib._
 import spinal.lib.blackbox.xilinx.ultrascale.IBUFDS
+import spinal.lib.com.fmc._
 import spinal.lib.com.pcie._
 import spinal.lib.com.uart._
-import spinal.lib.com.fmc._
 import spinal.lib.eda.xilinx._
 
 import java.io.File
