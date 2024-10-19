@@ -29,7 +29,7 @@ project/metals.sbt
 .metals
 *.swp
 *.swo
-.idea
+#.idea
 out
 
 
