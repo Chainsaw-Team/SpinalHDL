@@ -29,7 +29,7 @@ project/metals.sbt
 .metals
 *.swp
 *.swo
-#.idea
+.idea
 out
 
 
@@ -82,9 +82,6 @@ sim/yolo/rtl/__simulation_def.v
 sim/simulation_plugins/*
 !sim/simulation_plugins/.gitignore
 /chainsaw/src/main/resources/Axku5DaqSources/
-
-# for chainsaw module, module information in .idea folder is necessary
-!/chainsaw/.idea
 
 # for Vivado projects, do version control for .tcl files only
 /chainsaw/src/main/resources/VivadoProjects
