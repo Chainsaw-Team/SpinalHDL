@@ -26,9 +26,9 @@ set_property IOSTANDARD LVCMOS33 [get_ports rst_n]
 # UART
 
 # SMA
-set_property PACKAGE_PIN G12 [get_ports {SMA_CLK_P}]
-set_property PACKAGE_PIN H12 [get_ports {SMA_CLK_N}]
-set_property IOSTANDARD LVCMOS18 [get_ports SMA_CLK_*]
+set_property PACKAGE_PIN G12 [get_ports sma_clk_p]
+set_property PACKAGE_PIN H12 [get_ports sma_clk_n]
+set_property IOSTANDARD LVCMOS18 [get_ports sma_clk_*]
 
 # LED
 set_property PACKAGE_PIN E12 [get_ports {led[0]}]
@@ -38,13 +38,13 @@ set_property PACKAGE_PIN H23 [get_ports {led[3]}]
 set_property PACKAGE_PIN E13 [get_ports {led_test[0]}]
 set_property PACKAGE_PIN F13 [get_ports {led_test[1]}]
 
-set_property IOSTANDARD LVCMOS18 [get_ports led[0]]
-set_property IOSTANDARD LVCMOS18 [get_ports led[1]]
-set_property IOSTANDARD LVCMOS18 [get_ports led[2]]
+set_property IOSTANDARD LVCMOS18 [get_ports {led[0]}]
+set_property IOSTANDARD LVCMOS18 [get_ports {led[1]}]
+set_property IOSTANDARD LVCMOS18 [get_ports {led[2]}]
 # the only LED in BANK65
-set_property IOSTANDARD LVCMOS33 [get_ports led[3]] 
-set_property IOSTANDARD LVCMOS18 [get_ports led_test[0]]
-set_property IOSTANDARD LVCMOS18 [get_ports led_test[1]]
+set_property IOSTANDARD LVCMOS33 [get_ports {led[3]}]
+set_property IOSTANDARD LVCMOS18 [get_ports {led_test[0]}]
+set_property IOSTANDARD LVCMOS18 [get_ports {led_test[1]}]
 
 # user key, active-low
 set_property PACKAGE_PIN N23 [get_ports user_key_n]
@@ -55,4 +55,5 @@ create_clock -period 5.000 [get_ports sys_clk_p]
 ####################################################################################
 # Constraints from file : 'Axku062Pcie.xdc'
 ####################################################################################
+
 

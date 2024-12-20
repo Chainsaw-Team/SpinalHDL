@@ -129,3 +129,4 @@ set_property PACKAGE_PIN AK20 [get_ports {ddr4_dqs_c[2]}]
 set_property PACKAGE_PIN AN34 [get_ports {ddr4_dqs_t[7]}]
 set_property PACKAGE_PIN AP34 [get_ports {ddr4_dqs_c[7]}]
 
+

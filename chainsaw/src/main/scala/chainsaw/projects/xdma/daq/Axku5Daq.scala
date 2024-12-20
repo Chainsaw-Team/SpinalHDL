@@ -3,6 +3,7 @@ package chainsaw.projects.xdma.daq
 import spinal.core._
 import spinal.lib._
 import spinal.lib.blackbox.xilinx.ultrascale.{IBUFDS, OBUFDS}
+import spinal.lib.eda.xilinx.boards.alinx.Axku5
 
 //set_property CONFIG.CLK_DOMAIN Axku5Peripheral_PCIe_0_axi_aclk [get_bd_intf_pins /ChainsawDaqDataPath_0/controlIn]
 //set_property CONFIG.FREQ_HZ 125000000 [get_bd_intf_pins /ChainsawDaqDataPath_0/controlIn]

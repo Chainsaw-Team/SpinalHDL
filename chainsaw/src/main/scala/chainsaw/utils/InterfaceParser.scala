@@ -68,15 +68,19 @@ object Ddr4Parser extends InterfaceParser {
 
   override def getDefinition(interface: Interface): String = {
     println(s"found DDR4 interface elements:\n\t${interface.fields.map(_.name).mkString("\n\t")}")
+    val definitions = interface.fields
+    val dqs = definitions.find(_.name.contains("dqs_c")).get
+    val dataWidthInByte = dqs.bitWidth
+
     s"""
-       |  val ${interface.interfaceName} = Ddr4Interface()
+       |  val ${interface.interfaceName} = Ddr4Interface(17, $dataWidthInByte)
        |""".stripMargin
   }
 }
 
 // TODO: currently, all fields are marked as required, find out the optional ones
 object Axi4LiteParser extends InterfaceParser {
-  override val identifier: String = "axi_lit"
+  override val identifier: String = "axi_lite"
   override val requiredFields: Seq[String] = {
     Seq("araddr", "arprot", "arready", "arvalid") ++
       Seq("awaddr", "awprot", "awready", "awvalid") ++

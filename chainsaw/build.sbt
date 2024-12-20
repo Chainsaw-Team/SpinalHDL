@@ -12,4 +12,8 @@ lazy val root = (project in file("."))
   .settings(
     name := "chainsaw",
     libraryDependencies ++= Seq(spinalCore, spinalLib, spinalIdslPlugin),
+    // https://mvnrepository.com/artifact/cisd/jhdf5
+    libraryDependencies += "io.jhdf" % "jhdf" % "0.8.4"
+
+
   )

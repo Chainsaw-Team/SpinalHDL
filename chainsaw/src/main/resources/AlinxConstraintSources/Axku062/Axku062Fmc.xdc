@@ -5,18 +5,22 @@
 ###############################################################################
 
 # gigabit clocks
-set_property PACKAGE_PIN M5 [get_ports {fmc_hpc_GBTCLK_M2C_N_0}]
-set_property PACKAGE_PIN M6 [get_ports {fmc_hpc_GBTCLK_M2C_P_0}]
+set_property PACKAGE_PIN M5 [get_ports fmc_hpc_GBTCLK_M2C_N_0]
+set_property PACKAGE_PIN M6 [get_ports fmc_hpc_GBTCLK_M2C_P_0]
 set_property PACKAGE_PIN H6 [get_ports {fmc_hpc_GBTCLK_M2C_P_1}]
 set_property PACKAGE_PIN H5 [get_ports {fmc_hpc_GBTCLK_M2C_N_1}]
 
 # gigabit data, starting from GTHE3 @ X1Y12
+set_property LOC GTHE3_CHANNEL_X1Y12 [get_cells {peripheral/Peripheral_i/JESD204_PHY/inst/jesd204_phy_block_i/Peripheral_JESD204_PHY_0_gt_i/inst/gen_gtwizard_gthe3_top.Peripheral_JESD204_PHY_0_gt_gtwizard_gthe3_inst/gen_gtwizard_gthe3.gen_channel_container[3].gen_enabled_channel.gthe3_channel_wrapper_inst/channel_inst/gthe3_channel_gen.gen_gthe3_channel_inst[0].GTHE3_CHANNEL_PRIM_INST}]
 set_property PACKAGE_PIN M2 [get_ports {fmc_hpc_DP_M2C_P[0]}]
 set_property PACKAGE_PIN M1 [get_ports {fmc_hpc_DP_M2C_N[0]}]
+set_property LOC GTHE3_CHANNEL_X1Y13 [get_cells {peripheral/Peripheral_i/JESD204_PHY/inst/jesd204_phy_block_i/Peripheral_JESD204_PHY_0_gt_i/inst/gen_gtwizard_gthe3_top.Peripheral_JESD204_PHY_0_gt_gtwizard_gthe3_inst/gen_gtwizard_gthe3.gen_channel_container[3].gen_enabled_channel.gthe3_channel_wrapper_inst/channel_inst/gthe3_channel_gen.gen_gthe3_channel_inst[1].GTHE3_CHANNEL_PRIM_INST}]
 set_property PACKAGE_PIN K2 [get_ports {fmc_hpc_DP_M2C_P[1]}]
 set_property PACKAGE_PIN K1 [get_ports {fmc_hpc_DP_M2C_N[1]}]
+set_property LOC GTHE3_CHANNEL_X1Y14 [get_cells {peripheral/Peripheral_i/JESD204_PHY/inst/jesd204_phy_block_i/Peripheral_JESD204_PHY_0_gt_i/inst/gen_gtwizard_gthe3_top.Peripheral_JESD204_PHY_0_gt_gtwizard_gthe3_inst/gen_gtwizard_gthe3.gen_channel_container[3].gen_enabled_channel.gthe3_channel_wrapper_inst/channel_inst/gthe3_channel_gen.gen_gthe3_channel_inst[2].GTHE3_CHANNEL_PRIM_INST}]
 set_property PACKAGE_PIN H2 [get_ports {fmc_hpc_DP_M2C_P[2]}]
 set_property PACKAGE_PIN H1 [get_ports {fmc_hpc_DP_M2C_N[2]}]
+set_property LOC GTHE3_CHANNEL_X1Y15 [get_cells {peripheral/Peripheral_i/JESD204_PHY/inst/jesd204_phy_block_i/Peripheral_JESD204_PHY_0_gt_i/inst/gen_gtwizard_gthe3_top.Peripheral_JESD204_PHY_0_gt_gtwizard_gthe3_inst/gen_gtwizard_gthe3.gen_channel_container[3].gen_enabled_channel.gthe3_channel_wrapper_inst/channel_inst/gthe3_channel_gen.gen_gthe3_channel_inst[3].GTHE3_CHANNEL_PRIM_INST}]
 set_property PACKAGE_PIN F2 [get_ports {fmc_hpc_DP_M2C_P[3]}]
 set_property PACKAGE_PIN F1 [get_ports {fmc_hpc_DP_M2C_N[3]}]
 #set_property PACKAGE_PIN D2 [get_ports {fmc_hpc_DP_M2C_P[4]}]
@@ -52,14 +56,14 @@ set_property PACKAGE_PIN G11 [get_ports {fmc_hpc_CLK_M2C_N[1]}]
 set_property PACKAGE_PIN H11 [get_ports {fmc_hpc_CLK_M2C_P[1]}]
 
 # user data LA, 00,01,17,18 are CC compatible
-set_property PACKAGE_PIN E23 [get_ports fmc_hpc_LA_N_0]
 set_property PACKAGE_PIN E22 [get_ports fmc_hpc_LA_P_0]
-set_property PACKAGE_PIN C23 [get_ports fmc_hpc_LA_N_1]
+set_property PACKAGE_PIN E23 [get_ports fmc_hpc_LA_N_0]
 set_property PACKAGE_PIN D23 [get_ports fmc_hpc_LA_P_1]
+set_property PACKAGE_PIN C23 [get_ports fmc_hpc_LA_N_1]
 set_property PACKAGE_PIN A25 [get_ports fmc_hpc_LA_N_2]
 set_property PACKAGE_PIN B25 [get_ports fmc_hpc_LA_P_2]
-set_property PACKAGE_PIN A28 [get_ports fmc_hpc_LA_N_3]
 set_property PACKAGE_PIN A27 [get_ports fmc_hpc_LA_P_3]
+set_property PACKAGE_PIN A28 [get_ports fmc_hpc_LA_N_3]
 set_property PACKAGE_PIN B27 [get_ports fmc_hpc_LA_N_4]
 set_property PACKAGE_PIN C27 [get_ports fmc_hpc_LA_P_4]
 set_property PACKAGE_PIN C24 [get_ports fmc_hpc_LA_N_5]
@@ -357,7 +361,16 @@ set_property PACKAGE_PIN K22 [get_ports fmc_lpc_2_SDA]
 ###############################################################################
 
 # user data pins are set as single-ended by default, when used as differential pairs, set them in project-specific constraints
-set_property IOSTANDARD LVCMOS18 [get_ports fmc_hpc_LA_*]
+set_property IOSTANDARD LVCMOS18 [get_ports fmc_hpc_LA_N_4]
+set_property IOSTANDARD LVCMOS18 [get_ports fmc_hpc_LA_N_5]
+set_property IOSTANDARD LVCMOS18 [get_ports fmc_hpc_LA_N_7]
+set_property IOSTANDARD LVCMOS18 [get_ports fmc_hpc_LA_N_9]
+set_property IOSTANDARD LVCMOS18 [get_ports fmc_hpc_LA_P_11]
+set_property IOSTANDARD LVCMOS18 [get_ports fmc_hpc_LA_P_12]
+set_property IOSTANDARD LVCMOS18 [get_ports fmc_hpc_LA_P_4]
+set_property IOSTANDARD LVCMOS18 [get_ports fmc_hpc_LA_P_5]
+set_property IOSTANDARD LVCMOS18 [get_ports fmc_hpc_LA_P_7]
+set_property IOSTANDARD LVCMOS18 [get_ports fmc_hpc_LA_P_9]
 set_property IOSTANDARD LVCMOS18 [get_ports fmc_hpc_HA_*]
 set_property IOSTANDARD LVCMOS18 [get_ports fmc_lpc_1_LA_*]
 set_property IOSTANDARD LVCMOS33 [get_ports fmc_lpc_2_LA_*]
@@ -368,6 +381,7 @@ set_property IOSTANDARD LVCMOS33 [get_ports fmc_lpc_2_CLK_*]
 ###############################################################################
 # project-specific constraints
 ###############################################################################
+
 
 
 

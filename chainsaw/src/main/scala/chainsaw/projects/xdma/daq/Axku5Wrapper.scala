@@ -4,6 +4,7 @@ import spinal.lib._
 import spinal.lib.bus.amba4.axi._
 import spinal.lib.bus.amba4.axis._
 import spinal.lib.bus.amba4.axilite._
+import spinal.lib.com.ddr.Ddr4Interface
 
 import scala.language.postfixOps
 
