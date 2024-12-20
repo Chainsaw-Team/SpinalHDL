@@ -142,29 +142,21 @@ case class ChainsawDaqDataPath() extends Component {
 
     // manipulating rx data
     // remap rx data -> int16 segments
-    def mapper(bitsIn: Bits, base: Int): Bits = { // earlier data in higher bits (63:48 is segment0, 47:32 is segment1, etc.)
-      (0 until 4)
-        .map { i =>
-          val baseHigher = base + i * 8
-          val baseLower = base + (i + 4) * 8
-          val all = bitsIn(baseHigher + 7 downto baseHigher) ## bitsIn(baseLower + 7 downto baseLower)
-          val controlBits = all.takeLow(2)
-          all.takeHigh(14) ## B("00")
-        }
-        .reverse
-        .reduce(_ ## _)
+    def mapper(bitsIn: Bits, base: Int) = { // earlier data in higher bits (63:48 is segment0, 47:32 is segment1, etc.)
+      val elements = (0 until 4).map { i =>
+        val baseHigher = base + i * 8
+        val baseLower = base + (i + 4) * 8
+        val all = bitsIn(baseHigher + 7 downto baseHigher) ## bitsIn(baseLower + 7 downto baseLower)
+        val controlBits = all.takeLow(2)
+        (all.takeHigh(14) ## B("00")).asSInt
+      }.reverse
+      Vec(elements)
     }
 
-    val channel0Segments: Bits = mapper(dataIn.payload.data, 0)
-
-    // a pipelined calculating circuit example:
-    //    val original = mapper(dataIn.payload.data, 0)
-    //    val step0Result = original.subdivideIn(16 bits).map(_.asSInt).map(sint => RegNext(sint * 2)).reduce(_ @@ _) // step0
-    //    val channel0Segments = step0Result
-
-    val channel1Segments: Bits = mapper(dataIn.payload.data, 64)
-    channel0Probe assignFromBits channel0Segments.takeLow(16)
-    channel1Probe assignFromBits channel1Segments.takeLow(16)
+    val channel0Segments = mapper(dataIn.payload.data, 0)
+    val channel1Segments = mapper(dataIn.payload.data, 64)
+    channel0Probe assignFromBits channel0Segments.head.asBits
+    channel1Probe assignFromBits channel1Segments.head.asBits
 
     // TODO: linear fix for rx data, coefficients saved in register file
 
@@ -199,14 +191,16 @@ case class ChainsawDaqDataPath() extends Component {
     val counterForDecimation = CounterFreeRun(16)
     when(counterForDecimation.value === (getControlData(decimation) - 1) || !dataValid)(counterForDecimation.clear())
     val decimationValid = counterForDecimation.value === counterForDecimation.value.getZero
-
     val counterForPacket = Counter(1 << packetIdWidth, inc = dataLast)
 
     // sampled data as a free-running stream
-    val streamRaw = Stream(Fragment(Bits(64 * 2 bits)))
+    val streamRaw = Stream(Fragment(Vec(SInt(16 bits), 4)))
     streamRaw.valid := dataValid && decimationValid
     streamRaw.last := dataLast
-    streamRaw.fragment := channel0Segments ## channel1Segments
+    streamRaw.fragment(0) := channel0Segments(0)
+    streamRaw.fragment(1) := channel0Segments(2)
+    streamRaw.fragment(2) := channel1Segments(0)
+    streamRaw.fragment(3) := channel0Segments(2)
     dataOverflow := streamRaw.valid && !streamRaw.ready
 
 //    when(getControlData(controlClockingArea.testMode)) { // test data -> AXI DMA
