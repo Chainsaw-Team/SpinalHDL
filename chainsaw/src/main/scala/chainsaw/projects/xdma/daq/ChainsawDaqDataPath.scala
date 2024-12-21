@@ -150,7 +150,7 @@ case class ChainsawDaqDataPath() extends Component {
         val controlBits = all.takeLow(2)
         (all.takeHigh(14) ## B("00")).asSInt
       }.reverse
-      Vec(elements)
+      Vec(elements) // earlier data in lower index
     }
 
     val channel0Segments = mapper(dataIn.payload.data, 0)
@@ -200,7 +200,7 @@ case class ChainsawDaqDataPath() extends Component {
     streamRaw.fragment(0) := channel0Segments(0)
     streamRaw.fragment(1) := channel0Segments(2)
     streamRaw.fragment(2) := channel1Segments(0)
-    streamRaw.fragment(3) := channel0Segments(2)
+    streamRaw.fragment(3) := channel1Segments(2)
     dataOverflow := streamRaw.valid && !streamRaw.ready
 
 //    when(getControlData(controlClockingArea.testMode)) { // test data -> AXI DMA
