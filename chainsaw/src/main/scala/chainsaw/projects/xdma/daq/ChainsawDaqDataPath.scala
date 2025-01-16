@@ -205,6 +205,7 @@ case class ChainsawDaqDataPath() extends Component {
 
     val streamDemodulated = Stream(Fragment(Bits(64 bits)))
     val daqDemodulator = ChainsawDaqDemodulator()
+    daqDemodulator.clk := dataClk // explicit clock assignment, as ChainsawDaqDemodulator need standalone simulation
     daqDemodulator.en := getControlData(demodulationEnabled)
     streamRaw >> daqDemodulator.streamIn
     daqDemodulator.streamOut >> streamDemodulated

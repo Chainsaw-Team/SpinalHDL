@@ -1,0 +1,9 @@
+# 确保子项目规则优先处理
+!*/
+
+# 子项目特有规则
+*
+!*.xci
+!ip_location.tcl
+!*.gitignore
+managed_ip_project
