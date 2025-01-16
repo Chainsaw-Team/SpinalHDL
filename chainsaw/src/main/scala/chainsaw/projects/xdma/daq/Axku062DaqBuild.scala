@@ -1,6 +1,7 @@
 package chainsaw.projects.xdma.daq
 
 import spinal.core._
+import spinal.core.sim.SimConfig
 import utils.BlackBoxParser
 
 import java.io.File
@@ -90,3 +91,5 @@ object BuildBlackBox extends App {
 //}
 //
 //puts "All IPs have been successfully exported to $output_dir."
+
+

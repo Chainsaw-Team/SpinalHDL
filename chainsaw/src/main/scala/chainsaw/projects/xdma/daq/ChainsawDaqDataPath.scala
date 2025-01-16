@@ -112,7 +112,7 @@ case class ChainsawDaqDataPath() extends Component {
 
     userBusIf.accept(HtmlGenerator("UserRegisterSpace", "AP"))
     userBusIf.accept(CHeaderGenerator("UserRegisterSpace", "AP"))
-    userBusIf.accept(PythonHeaderGenerator("UserRegisterSpace", "AP"))
+//    userBusIf.accept(PythonHeaderGenerator("UserRegisterSpace", "AP"))
 
   }
 
