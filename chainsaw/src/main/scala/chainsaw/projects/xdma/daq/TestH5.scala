@@ -39,7 +39,7 @@ object DemodulatorTest {
 //              sint #= pulses.head.dequeue()
 //            }
             if (pulses.head.isEmpty) {
-//              println("next pulse")
+              println("next pulse")
               pulses.dequeue()
               payload.last #= true
             } else payload.last #= false
@@ -70,8 +70,8 @@ object DemodulatorTest {
 object TestH5 extends App {
 
   // 从H5文件中读出数据
-  val hdf5File = new HdfFile(new File("/home/ltr/DasData/example.h5"))
-  val rawData = hdf5File.getDatasetByPath("/raw_data").getData.asInstanceOf[Array[Array[Short]]]
+  val hdf5File = new HdfFile(new File("/home/ltr/DasPython/DasTest/test/spatial_resolution.h5"))
+  val rawData = hdf5File.getDatasetByPath("/raw_data_x").getData.asInstanceOf[Array[Array[Short]]]
   val stimulus = mutable.Queue(rawData.map(row => mutable.Queue(row: _*)): _*)
   println(f"shape = ${rawData.length} X ${rawData.head.length}")
 
@@ -93,3 +93,4 @@ object TestH5 extends App {
   shortBuffer.put(flattenedMatrix)
   dos.write(byteBuffer.array)
 }
+

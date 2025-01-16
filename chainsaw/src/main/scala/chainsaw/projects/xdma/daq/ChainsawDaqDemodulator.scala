@@ -13,58 +13,44 @@ import scala.math._
 
 case class ChainsawDaqDemodulator() extends Module {
 
-  // TODO: learning using pipeline utilities for Stream
+  def fragment[T <: Data](data: T, last: Bool): Fragment[T] = {
+    val fragment = Fragment(HardType(data))
+    fragment.fragment := data
+    fragment.last := last
+    fragment
+  }
+
   val vectorWidth = 2
 
   val streamIn = slave Stream Fragment(Vec(SInt(16 bits), 4)) // earlier data in lower index
   val streamOut = master Stream Fragment(Bits(64 bits)) // earlier data in lower bits
-  val channelSelection = in Bool () // select X|Y
-  val xyEnabled = in Bool () // enable both X and Y
+  val en = in Bool () // output demodulated phase when enabled, raw data when disabled
 
   val channel0 = streamIn.fragment.take(vectorWidth)
   val channel1 = streamIn.fragment.takeRight(vectorWidth)
 
-  // * carrier
-  def gcd(a: BigInt, b: BigInt): BigInt = if (b == 0) a else gcd(b, a % b)
-  def lcm(a: BigInt, b: BigInt): BigInt = a * b / gcd(a, b)
+  val Seq(streamForAlgo, streamForRaw) = StreamFork(streamIn, 2, synchronous = true)
 
-  val freqs = Seq(500e6, 80e6, 200e6).map(_.toInt).map(BigInt(_))
-  val Seq(adcSamplingRate, carrier0Freq, carrier1Freq) = freqs
-  val carrierSamples = lcm(vectorWidth, adcSamplingRate / freqs.reduce(gcd)) // 通过最大公共频率找出最小公共周期
-  // TODO: DDS module
-  println(s"Number of samples for one common period: $carrierSamples points")
-  val indices = 0 until carrierSamples.toInt
-  val phases0 = indices.map(_ * 2 * Pi * carrier0Freq.doubleValue() / adcSamplingRate.doubleValue())
-  val phases1 = indices.map(_ * 2 * Pi * carrier1Freq.doubleValue() / adcSamplingRate.doubleValue())
-  val carrier0Value = phases0.map(sin).map(_ * (1 << 15)).map(_.toInt)
-  val carrier1Value = phases1.map(sin).map(_ * (1 << 15)).map(_.toInt)
-  val carrier0Rom = Mem(carrier0Value.grouped(vectorWidth).map(vec => Vec(vec.map(S(_, 16 bits)))).toSeq)
-  val carrier1Rom = Mem(carrier1Value.grouped(vectorWidth).map(vec => Vec(vec.map(S(_, 16 bits)))).toSeq)
+  // datapath for raw data
+  val rawData = channel1(1) ## channel0(1) ## channel1(0) ## channel0(0)
+  val rawStream = streamForRaw.translateWith(fragment(rawData, streamIn.last))
 
-  case class ComponentDemodulator(carrierFreq: BigInt, data: Stream[Fragment[Vec[SInt]]]) extends Area {
+  // datapath for demodulation
+  val summation = channel0.zip(channel1).map { case (x, y) => RegNext(((x +^ y) >> 1).asBits) }
+  val demodulatedData = summation(1) ## summation(1) ## summation(0) ## summation(0)
+  val demodualtedLast = RegNext(streamIn.last)
+  val demodulatedStream = streamForAlgo.m2sPipe().translateWith(fragment(demodulatedData, demodualtedLast))
 
-    val carrierSamples = lcm(vectorWidth, adcSamplingRate / gcd(adcSamplingRate, carrierFreq)) // 通过最大公共频率找出最小公共周期
-    println(s"Number of samples for one common period: $carrierSamples points")
-    val indices = 0 until carrierSamples.toInt
-    val phases0 = indices.map(_ * 2 * Pi * carrier0Freq.doubleValue() / adcSamplingRate.doubleValue())
-    val phases1 = indices.map(_ * 2 * Pi * carrier1Freq.doubleValue() / adcSamplingRate.doubleValue())
-    val carrier0Value = phases0.map(sin).map(_ * (1 << 15)).map(_.toInt)
-    val carrier1Value = phases1.map(sin).map(_ * (1 << 15)).map(_.toInt)
-    val carrier0Rom = Mem(carrier0Value.grouped(vectorWidth).map(vec => Vec(vec.map(S(_, 16 bits)))).toSeq)
-    val carrier1Rom = Mem(carrier1Value.grouped(vectorWidth).map(vec => Vec(vec.map(S(_, 16 bits)))).toSeq)
-
+  // output
+  when(en) {
+//    streamForRaw.ready.set()
+    rawStream.ready.set()
+    demodulatedStream <> streamOut
+  }.otherwise {
+//    streamForAlgo.ready.set()
+    demodulatedStream.ready.set()
+    rawStream <> streamOut
   }
-
-  // channel selection
-  val summation = channel0
-    .zip(channel1)
-    .map { case (x, y) => ((x +^ y) >> 1).asBits }
-
-  streamOut.fragment := summation(1) ## summation(1) ## summation(0) ## summation(0)
-  streamOut.valid := streamIn.valid
-  streamIn.ready := streamOut.ready
-  streamOut.last := streamIn.last
-
 }
 
 object ChainsawDaqDemodulator extends App {
