@@ -14,7 +14,7 @@ object TestDemodulator {
       pulsesY: mutable.Queue[mutable.Queue[Short]]
   ): mutable.Seq[ArrayBuffer[Short]] = {
     val result = ArrayBuffer[ArrayBuffer[Short]]()
-    Config.sim.compile(ChainsawDaqDemodulator()).doSim { dut =>
+    Config.sim.compile(DasDemodulator()).doSim { dut =>
       dut.dataClockDomain.forkStimulus(2)
       dut.en #= true
       assert(pulsesX.head.length % dut.streamIn.fragment.length == 0)
@@ -23,6 +23,7 @@ object TestDemodulator {
       // driver thread
       // TODO: extract methods to peek & poke frames using StreamDriver & StreamMonitor
       fork {
+        // TODO: 增加使用固定输入作为激励的模式,允许自定义的gap,测试不同gap情况下,同步是否总能完成
         // pulse by pulse simulation
         var count = 10000 // extra cycles for monitor thread to collect output data
         var gapCount = 1000 // cycles inserted between pulses
@@ -88,4 +89,7 @@ object TestDemodulator {
     }
     result.init
   }
+
+//  current_fileset
+//  open_wave_database DasDemodulator.wdb
 }

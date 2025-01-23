@@ -1,4 +1,4 @@
-package chainsaw.projects.xdma.daq.ku060IPs
+package chainsaw.projects.xdma.daq.ku060Ips
 
 import chainsaw.projects.xdma.daq.Config
 import chainsaw.projects.xdma.daq.ku060Ips.LowpassFir
@@ -17,7 +17,7 @@ case class LowpassFirDut() extends Module {
   val s_axis_data = slave(Axi4Stream(s_axis_data_Config))
   s_axis_data.setNameForEda()
 
-  val m_axis_data_Config = Axi4StreamConfig(dataWidth = 6, useLast = true)
+  val m_axis_data_Config = Axi4StreamConfig(dataWidth = 8, useLast = true)
   val m_axis_data = master(Axi4Stream(m_axis_data_Config))
   m_axis_data.setNameForEda()
 
@@ -94,10 +94,10 @@ object LowpassFirDut extends App {
 
     // monitor
     fork { // monitor thread
-      StreamReadyRandomizer(dut.m_axis_data, dut.dataClockDomain).setFactor(1.0f) // downstream always ready
+      StreamReadyRandomizer(dut.m_axis_data, dut.dataClockDomain).setFactor(0.5f) // downstream always ready
       val monitor = StreamMonitor(dut.m_axis_data, dut.dataClockDomain) { payload =>
         val bits = payload.data.toBigInt.toString(2).reverse.padTo(48, '0').reverse
-        bits.grouped(24).toSeq.reverse.foreach { bits =>
+        bits.grouped(32).toSeq.reverse.foreach { bits =>
           result.append(twosComplementToInt(bits))
         } // earlier data on lower bits
       }

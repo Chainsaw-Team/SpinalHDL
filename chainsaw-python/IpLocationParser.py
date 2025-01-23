@@ -79,7 +79,7 @@ def convert_io_to_scala(io_dict, xci_file_path=None):
     :return: Scala code as a string.
     """
     scala_code = ""
-    parsers = [Ddr4Parser(), Axi4LiteParser(), Axi4StreamParser()]
+    parsers = [Ddr4Parser(), Axi4LiteParser(), Axi4StreamParser(), FlowParser()]
 
     for module_name, signals in io_dict.items():
         scala_code += f"case class {module_name}() extends BlackBox {{\n"
@@ -105,6 +105,11 @@ def convert_io_to_scala(io_dict, xci_file_path=None):
         # Add optional RTL path
         if xci_file_path:
             scala_code += f"\n  addRTLPath(raw\"{xci_file_path}\")\n"
+        # mapping clock domain
+        if "aclk" in signals:
+            en = "aclken" if "aclken" in signals else "null"
+            rst = "aresetn" if "aresetn" in signals else "null"
+            scala_code += f"\n  mapCurrentClockDomain(aclk, reset={rst}, enable={en})\n"
         scala_code += "}\n\n"
     return scala_code
 
@@ -119,9 +124,9 @@ def generate_blackbox(description, scala_file_path, xci_file_path: str = None):
     contents.append(
         """
 import spinal.core._
+import spinal.lib._
 import spinal.lib.bus.amba4.axis.Axi4Stream
 import spinal.lib.bus.amba4.axis.Axi4StreamConfig
-import spinal.lib._
         
         """
     )
@@ -185,5 +190,5 @@ if __name__ == "__main__":
     parser_config.target_package_name = "chainsaw.projects.xdma.daq.ku060Ips"
     # conversion
     ip_location = "/home/ltr/SpinalHDL/KU060IP"  # your Vivado IP location
-    scala_package_path = "/home/ltr/SpinalHDL/chainsaw/src/main/scala/chainsaw/projects/xdma/daq/ku060IPs"  # your Scala Package location
+    scala_package_path = "/home/ltr/SpinalHDL/chainsaw/src/main/scala/chainsaw/projects/xdma/daq/ku060Ips"  # your Scala Package location
     scan_ip_location(ip_location, scala_package_path)

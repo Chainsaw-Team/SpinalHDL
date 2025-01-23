@@ -1,6 +1,6 @@
 package chainsaw.projects.xdma.daq
 
-import chainsaw.projects.xdma.daq.{ChainsawDaqDemodulator, DemodulatorTest}
+import chainsaw.projects.xdma.daq.{ComponentDemodulator, DemodulatorTest}
 import io.jhdf.HdfFile
 import spinal.core.assert
 import spinal.core.sim._
@@ -15,7 +15,7 @@ object DemodulatorTest {
 
   def apply(pulses: mutable.Queue[mutable.Queue[Short]]): mutable.Seq[ArrayBuffer[Short]] = {
     val result = ArrayBuffer[ArrayBuffer[Short]]()
-    SimConfig.withWave.compile(ChainsawDaqDemodulator()).doSim { dut =>
+    SimConfig.withWave.compile(DasDemodulator()).doSim { dut =>
       dut.clockDomain.forkStimulus(2)
       assert(pulses.head.length % dut.streamIn.fragment.length == 0)
       // driver thread

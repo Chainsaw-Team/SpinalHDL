@@ -204,8 +204,9 @@ case class ChainsawDaqDataPath() extends Component {
     dataOverflow := streamRaw.valid && !streamRaw.ready
 
     val streamDemodulated = Stream(Fragment(Bits(64 bits)))
-    val daqDemodulator = ChainsawDaqDemodulator()
+    val daqDemodulator = DasDemodulator()
     daqDemodulator.clk := dataClk // explicit clock assignment, as ChainsawDaqDemodulator need standalone simulation
+    daqDemodulator.rstn := dataRstn
     daqDemodulator.en := getControlData(demodulationEnabled)
     streamRaw >> daqDemodulator.streamIn
     daqDemodulator.streamOut >> streamDemodulated
