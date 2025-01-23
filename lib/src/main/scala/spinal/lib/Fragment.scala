@@ -163,6 +163,12 @@ class StreamFragmentPimped[T <: Data](pimped: Stream[Fragment[T]]) {
       to.fragment := from.fragment
     })
   }
+
+  def start: Bool = {
+    val frameDone = RegInit(True)
+    when(pimped.last && pimped.fire)(frameDone.set()).elsewhen(pimped.fire)(frameDone.clear())
+    frameDone && pimped.fire
+  }
 }
 
 

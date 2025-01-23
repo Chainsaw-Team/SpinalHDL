@@ -199,5 +199,40 @@ object Axi4Stream {
       stream.valid.setPartialName("tvalid")
       stream.ready.setPartialName("tready")
     }
+
+    /** indicate the first cycle of a frame
+     */
+    def start: Bool = {
+      val frameDone = RegInit(True)
+      when(stream.last && stream.fire)(frameDone.set()).elsewhen(stream.fire)(frameDone.clear())
+      frameDone && stream.fire
+    }
+
+    def toStream: Stream[Bits] = {
+      val ret = Stream(HardType(stream.data))
+      ret.arbitrationFrom(stream)
+      ret.payload.assignFromBits(stream.data)
+      ret
+    }
+
+    def toStreamFragment: Stream[Fragment[Bits]] = {
+      val ret = Stream(Fragment(HardType(stream.data)))
+      ret.arbitrationFrom(stream)
+      ret.fragment.assignFromBits(stream.data)
+      ret.last := stream.last
+      ret
+    }
+
+    // TODO: better name
+    def fromStream(that:Stream[Bits]) = {
+      stream.arbitrationFrom(that)
+      stream.data := that.payload
+    }
+
+    def fromStreamFragment(that:Stream[Fragment[Bits]]) = {
+      stream.arbitrationFrom(that)
+      stream.last := that.last
+      stream.data := that.fragment
+    }
   }
 }

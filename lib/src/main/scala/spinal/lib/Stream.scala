@@ -650,6 +650,12 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     this.ready := True
     RegNextWhen(this.payload,this.fire,init)
   }
+
+  def setNameForVivado() : Unit = {
+    payload.setPartialName("tdata")
+    valid.setPartialName("tvalid")
+    ready.setPartialName("tready")
+  }
 }
 
 object StreamArbiter {

@@ -181,6 +181,11 @@ class Flow[T <: Data](val payloadType: HardType[T]) extends Bundle with IMasterS
     fifo.io.push.ready.allowPruning()
     return (fifo.io.pop, fifo.io.availability)
   }
+
+  def setNameForVivado() : Unit = {
+    payload.setPartialName("tdata")
+    valid.setPartialName("tvalid")
+  }
 }
 
 /** Create a new Flow that is always valid, with a given payload */
