@@ -1,12 +1,10 @@
 package chainsaw.projects.xdma.daq
 
 import org.scalatest.funsuite.AnyFunSuiteLike
-import spinal.core.{HertzNumber, Info, IntToBuilder}
 import spinal.core.sim._
+import spinal.core.{HertzNumber, IntToBuilder}
 import spinal.lib.sim._
 
-import scala.collection.mutable
-import scala.collection.mutable.ArrayBuffer
 import scala.language.postfixOps
 
 class ComponentDemodulatorTest extends AnyFunSuiteLike {
