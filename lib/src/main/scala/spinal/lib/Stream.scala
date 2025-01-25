@@ -651,8 +651,17 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     RegNextWhen(this.payload,this.fire,init)
   }
 
-  def setNameForVivado() : Unit = {
-    payload.setPartialName("tdata")
+  def setNameForVivado(): Unit = {
+    payload match {
+      case frag: Fragment[_] =>
+        frag.setPartialName("")
+        frag.fragment.setPartialName("tdata")
+        frag.last.setPartialName("tlast")
+
+      case _ => // 如果不是 Fragment 类型，直接按照以前的行为处理
+        payload.setPartialName("tdata")
+    }
+
     valid.setPartialName("tvalid")
     ready.setPartialName("tready")
   }

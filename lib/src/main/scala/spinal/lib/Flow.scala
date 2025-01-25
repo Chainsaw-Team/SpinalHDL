@@ -182,8 +182,17 @@ class Flow[T <: Data](val payloadType: HardType[T]) extends Bundle with IMasterS
     return (fifo.io.pop, fifo.io.availability)
   }
 
-  def setNameForVivado() : Unit = {
-    payload.setPartialName("tdata")
+  def setNameForVivado(): Unit = {
+    payload match {
+      case frag: Fragment[_] =>
+        frag.setPartialName("")
+        frag.fragment.setPartialName("tdata")
+        frag.last.setPartialName("tlast")
+
+      case _ =>
+        payload.setPartialName("tdata")
+    }
+
     valid.setPartialName("tvalid")
   }
 }

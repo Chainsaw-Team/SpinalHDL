@@ -1,17 +1,13 @@
 package chainsaw.projects.xdma.daq.customizedIps
 
-import chainsaw.projects.xdma.daq.ku060Ips.{FloatAcc, FloatAdd, FloatSub}
 import chainsaw.projects.xdma.daq._
+import chainsaw.projects.xdma.daq.ku060Ips.{FloatAcc, FloatAdd, FloatSub}
 import spinal.core._
-import spinal.lib._
-import spinal.lib.StreamJoin
-import spinal.lib.bus.amba4.axis.Axi4Stream._
-import spinal.lib.bus.amba4.axis._
-import spinal.lib.cpu.riscv.impl.sync
-import spinal.lib.experimental.math.{Floating, Floating32, IEEE754Converter}
+import spinal.lib.{StreamJoin, _}
+import spinal.lib.experimental.math.{Floating32, IEEE754Converter}
 
-import scala.math.Pi
 import scala.language.postfixOps
+import scala.math.Pi
 
 case class UnwrapFloat() extends Module {
 
@@ -36,20 +32,19 @@ case class UnwrapFloat() extends Module {
   val rawFlow = rawAndDelayed.translateWith(rawAndDelayed.fragment.takeLow(32)).addFragmentLast(dataIn.last)
 
   // step1: get delta
-  sub0.s_axis_a.fromStreamFragment(rawFlow) // minuend
-  sub0.s_axis_b.fromStreamFragment(delayedFlow) // subtrahend
+  rawFlow >> sub0.s_axis_a // minuend
+  delayedFlow >> sub0.s_axis_b // subtrahend
 
   // step2: get candidates
   val deltaSources = StreamFork(sub0.m_axis_result, 5)
   val constants = Seq(Pi, -Pi, 2 * Pi, -2 * Pi).map(_.toFloat).map(getFloatBits)
   val Seq(det0, det1, cand2, cand1) =
-    Seq(add0, add1, add2, add3).zip(constants).zip(deltaSources.take(4)).map {
-      case ((add, bits), source) =>
-        source >> add.s_axis_a
-        add.s_axis_b.data := bits
-        add.s_axis_b.last := source.last
-        add.s_axis_b.valid := source.valid
-        add.m_axis_result
+    Seq(add0, add1, add2, add3).zip(constants).zip(deltaSources.take(4)).map { case ((add, bits), source) =>
+      source >> add.s_axis_a
+      add.s_axis_b.fragment := bits
+      add.s_axis_b.last := source.last
+      add.s_axis_b.valid := source.valid
+      add.m_axis_result
     }
 
   val cand0 = deltaSources.last.queue(FLOATING_OPERATION_LATENCY + 3)
@@ -57,12 +52,12 @@ case class UnwrapFloat() extends Module {
   val streamJoin = StreamJoin(Seq(cand0, cand1, cand2, det0, det1)) // sync by streamJoin
 
   // step3: determination
-  val det = (!det1.data.msb ## det0.data.msb).asUInt // delta - pi > 0 ## delta + pi < 0
+  val det = (!det1.fragment.msb ## det0.fragment.msb).asUInt // delta - pi > 0 ## delta + pi < 0
   val deltaFixed = det.mux(
-    0 -> cand0.data,
-    1 -> cand2.data,
-    2 -> cand1.data,
-    3 -> cand0.data // illegal
+    0 -> cand0.fragment,
+    1 -> cand2.fragment,
+    2 -> cand1.fragment,
+    3 -> cand0.fragment // illegal
   )
 // error case of a pipelined datapth
 //  val fragmentDeltaFixed = fragment(RegNext(deltaFixed), RegNext(cand0.last))
@@ -71,8 +66,8 @@ case class UnwrapFloat() extends Module {
   val streamDeltaFixed = streamJoin.translateWith(fragmentDeltaFixed).m2sPipe()
 
   // step4: accumulation
-  acc0.s_axis_a.fromStreamFragment(streamDeltaFixed)
-  acc0.m_axis_result.toStream.transmuteWith(HardType(Floating32())).addFragmentLast(acc0.m_axis_result.last) >> dataOut
+  streamDeltaFixed >> acc0.s_axis_a
+  acc0.m_axis_result.toStreamOfFragment.transmuteWith(HardType(Floating32())).addFragmentLast(acc0.m_axis_result.last) >> dataOut
 
 }
 

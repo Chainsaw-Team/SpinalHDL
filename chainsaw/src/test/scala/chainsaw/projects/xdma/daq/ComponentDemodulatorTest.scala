@@ -124,12 +124,32 @@ class ComponentDemodulatorTest extends AnyFunSuiteLike {
     val dataX = Seq.fill(5)(getSin(isSin = true, 20 MHz, 0.0))
     val dataY = Seq.fill(5)(getSin(isSin = false, 30 MHz, 0.0))
     val result = testComponentDemodulator(80 MHz, dataX, dataY, 0)
-    println(result.map(_.mkString(",")).mkString("\n"))
-    println("phase result")
-    println(result.head.grouped(4).toSeq.flatMap(_.takeRight(2)).mkString(","))
-    println("imag result")
-    println(result.head.grouped(4).toSeq.flatMap(_.take(2)).mkString(","))
-//    println(result.head.grouped(4).toSeq.flatMap(seq => Seq(seq(1), seq(3))).mkString(","))
+
+    import java.io.FileOutputStream
+
+    def writeBinaryFile(fileName: String, data: Seq[Int]): Unit = {
+      val outputStream = new FileOutputStream(fileName)
+      try {
+        // 将数据按照 Little Endian 写入
+        data.foreach { value =>
+          val shortValue: Short = value.toShort // 转换为 Short 类型
+          val bytes = Array(
+            (shortValue & 0xff).toByte, // 取低字节
+            ((shortValue >> 8) & 0xff).toByte // 取高字节
+          )
+          outputStream.write(bytes)
+        }
+      } finally {
+        outputStream.close()
+      }
+    }
+
+    val upperResult = result.head.grouped(4).toSeq.flatMap(_.takeRight(2)) // higher bits
+    val lowerResult = result.head.grouped(4).toSeq.flatMap(_.take(2)) // lower bits
+
+    // 写入二进制文件
+    writeBinaryFile("upper_result.bin", upperResult)
+    writeBinaryFile("lower_result.bin", lowerResult)
 
 //     cd
 //     cd  ~/SpinalHDL/simWorkspace/ComponentDemodulator/xsim

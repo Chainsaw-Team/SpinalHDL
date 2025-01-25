@@ -66,7 +66,9 @@ package object daq {
     fragment
   }
 
-
+  implicit class StreamFragmentUtils[T <: Data](stream: Stream[Fragment[T]]) {
+    def translateFragmentWith[T2 <: Data](data: T2) = stream.translateWith(fragment(data, stream.last))
+  }
 
 //  implicit class FloatingPointUtils(f: Floating) {
 //    def isNormalized = f.exponent =/= f.exponent.getZero && f.exponent =/= f.exponent.getAllTrue

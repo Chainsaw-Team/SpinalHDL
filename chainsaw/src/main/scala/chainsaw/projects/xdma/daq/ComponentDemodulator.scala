@@ -1,5 +1,6 @@
 package chainsaw.projects.xdma.daq
 
+import chainsaw.projects.xdma.daq.customizedIps.{DataDelay, DataDelayConfig}
 import chainsaw.projects.xdma.daq.ku060Ips._
 import spinal.core._
 import spinal.core.sim.SimDataPimper
@@ -9,20 +10,15 @@ import scala.collection.Seq
 import scala.language.postfixOps
 import scala.math
 
+// TODO: 在没有特殊字段的前提下,blackbox中的Axi4Stream应当被提取为Stream或Flow,而不是完整的Axi4Stream
+// TODO: optimize CORDIC parameters,包括输入输出位数,iteration数量
+
 case class ComponentDemodulator(carrierFreq: HertzNumber) extends Module {
 
-  // TODO: 在没有特殊字段的前提下,blackbox中的Axi4Stream应当被提取为Stream或Flow,而不是完整的Axi4Stream
   val OUTPUT_WIDTH = 32
   val OUTPUT_FRACTIONAL_WIDTH = 20
   val OUTPUT_STRAIN_RESOLUTION = 0.025 / 0.23 / (1 << 20) // 0.23rad <-> 0.025με / gauge length
   println(s"strain/gauge length resolution = ${OUTPUT_STRAIN_RESOLUTION * 1e12}pε/m")
-
-  def fragment[T <: Data](data: T, last: Bool): Fragment[T] = {
-    val fragment = Fragment(HardType(data))
-    fragment.fragment := data
-    fragment.last := last
-    fragment
-  }
 
   def getSlice(length: Int, index: Int) = (index + 1) * length - 1 downto index * length
 
@@ -66,137 +62,79 @@ case class ComponentDemodulator(carrierFreq: HertzNumber) extends Module {
   val phaseInc = (carrierFreq.toDouble * DDS_MODULUS / SAMPLING_FREQ).toInt
   val phaseOffsets = Seq(0, phaseInc / 2)
   assert(phaseInc % 2 == 0)
-  val dds0, dds1 = DdsCompiler()
 
   //////////
   // stream datapath
   //////////
 
   //////////
-  // step 1: complex sine wave generation & vectorization
+  // step 1: get synced carrier(fork-queue-join structure)
   //////////
-  val Seq(streamRawData, streamForCarrier) = StreamFork(streamIn, 2, synchronous = true)
-
-  // StreamForCarrier -> DDS
-  val ddss = Seq(dds0, dds1)
-  ddss.zip(phaseOffsets).foreach { case (dds, offset) =>
-    dds.s_axis_phase.valid := streamForCarrier.valid
-    // driving 2 DDS module with different offset
-    dds.s_axis_phase.data := getPhaseData(resync, inc = phaseInc, offset = offset)
-    dds.s_axis_phase.last := streamForCarrier.last
-
-    streamForCarrier.ready.allowOverride()
-    streamForCarrier.ready := dds.s_axis_phase.ready
-  }
-
-  // DDS -> streamCarrier
-  val streamCarrier = Stream Fragment Vec(SInt(16 bits), 4)
-  dds0.m_axis_data.translateWith(
-    fragment(
-      Vec(
-        dds0.m_axis_data.data(2 * DDS_OUTPUT_WIDTH - 1 downto DDS_OUTPUT_WIDTH).asSInt, // sin0
-        dds0.m_axis_data.data(DDS_OUTPUT_WIDTH - 1 downto 0).asSInt, // cos0
-        dds1.m_axis_data.data(2 * DDS_OUTPUT_WIDTH - 1 downto DDS_OUTPUT_WIDTH).asSInt, // sin1
-        dds1.m_axis_data.data(DDS_OUTPUT_WIDTH - 1 downto 0).asSInt // cos1
-      ),
-      dds0.m_axis_data.last
+  val Seq(streamRawData, streamForCarrier) = StreamFork(streamIn, 2) // fork
+  // streamForCarrier -> DDS -> streamCarrier
+  streamForCarrier.ready.allowOverride()
+  val dds0, dds1 = DdsCompiler()
+  streamForCarrier.translateFragmentWith(getPhaseData(resync, phaseInc, phaseOffsets(0))) >> dds0.s_axis_phase
+  streamForCarrier.translateFragmentWith(getPhaseData(resync, phaseInc, phaseOffsets(1))) >> dds1.s_axis_phase
+  val streamCarrier = dds0.m_axis_data.translateFragmentWith(
+    Vec(
+      dds0.m_axis_data.fragment(2 * DDS_OUTPUT_WIDTH - 1 downto DDS_OUTPUT_WIDTH).asSInt, // sin0
+      dds0.m_axis_data.fragment(DDS_OUTPUT_WIDTH - 1 downto 0).asSInt, // cos0
+      dds1.m_axis_data.fragment(2 * DDS_OUTPUT_WIDTH - 1 downto DDS_OUTPUT_WIDTH).asSInt, // sin1
+      dds1.m_axis_data.fragment(DDS_OUTPUT_WIDTH - 1 downto 0).asSInt // cos1
     )
-  ) >> streamCarrier
+  )
   dds1.m_axis_data.ready := streamCarrier.ready
+  val streamRawBuffered = streamRawData.queue(16) // queue
+  val streamRawAndCarrier = StreamJoin(streamRawBuffered, streamCarrier) // join
+  val Seq(x0, x1, y0, y1) = streamRawAndCarrier.payload._1.fragment
+  val Seq(sin0, cos0, sin1, cos1) = streamRawAndCarrier.payload._2.fragment
 
-  // streamRaw -> FIFO for alignment
-  val streamRawBuffered = streamRawData.queue(16)
+//  streamRawAndCarrier.translateWith(
+//    fragment(cos1 ## cos0 ## sin1 ## sin0, streamRawAndCarrier.payload._1.last)
+//  ) >> streamOut
 
-  val streamJoined0 = StreamJoin(streamRawBuffered, streamCarrier)
-  val Seq(x0, x1, y0, y1) = streamJoined0.payload._1.fragment
-  val Seq(sin0, cos0, sin1, cos1) = streamJoined0.payload._2.fragment
-
-  val streamVec = Stream Fragment Vec(SInt(16 bits), 4)
-  streamJoined0 // delay = 2
-    .m2sPipe()
-    .m2sPipe()
-    .translateWith(
-      fragment(
-        Vec(
-          RegNext(RegNext(sin0 * x0) + RegNext(sin0 * y0)).takeHigh(16).asSInt, // imag0
-          RegNext(RegNext(cos0 * x0) + RegNext(cos0 * y0)).takeHigh(16).asSInt, // real0
-          RegNext(RegNext(sin1 * x1) + RegNext(sin1 * y1)).takeHigh(16).asSInt, // imag1
-          RegNext(RegNext(cos1 * x1) + RegNext(cos1 * y1)).takeHigh(16).asSInt // real1
-        ),
-        Delay(streamJoined0.payload._1.last, 2)
-      )
-    ) >> streamVec
+  //////////
+  // step 2: get vector, 2 stage
+  //////////
+  val stage0 = Vec(sin0 * x0, sin0 * y0, cos0 * x0, cos0 * y0, sin1 * x1, sin1 * y1, cos1 * x1, cos1 * y1)
+  val streamShifted = streamRawAndCarrier.translateWith(fragment(stage0, streamRawAndCarrier.payload._1.last)).m2sPipe()
+  val stage1 = streamShifted.fragment.grouped(2).toSeq.map(pair => (pair(0) +^ pair(1)).takeHigh(16))
+  val streamVec = streamShifted.translateWith(fragment(Vec(stage1), streamShifted.last)).m2sPipe()
   val Seq(imag0, real0, imag1, real1) = streamVec.fragment
 
-  //    streamVec.translateWith(fragment(real1 ## real0 ## imag1 ## imag0, streamVec.last)) >> streamOut
+//  streamVec.translateFragmentWith(imag1 ## imag0 ## real1 ## real0) >> streamOut
 
   //////////
-  // step 2: low-pass FIR
+  // step 3: get filtered
   //////////
-  val firImag, firReal = LowpassFir()
+  // streamVec -> FIR -> streamFiltered
   streamVec.ready.allowOverride()
-  val streamImag = streamVec.translateWith(fragment(imag1 ## imag0, streamVec.last))
-  val streamReal = streamVec.translateWith(fragment(real1 ## real0, streamVec.last))
-  Seq(streamImag, streamReal).zip(Seq(firImag, firReal)).foreach { case (stream, fir) =>
-    fir.s_axis_data.data := stream.fragment
-    fir.s_axis_data.last := stream.last
-    fir.s_axis_data.valid := stream.valid
-    stream.ready := fir.s_axis_data.ready
-  }
-  val Seq(filteredReal0, filteredReal1) = firReal.m_axis_data.data.subdivideIn(32 bits)
-  val Seq(filteredImag0, filteredImag1) = firImag.m_axis_data.data.subdivideIn(32 bits)
-  // TODO: merge stream filtered
-  val streamFilteredReal = firReal.m_axis_data.translateWith(
-    fragment(Vec(filteredReal0.takeHigh(16), filteredReal1.takeHigh(16)), firReal.m_axis_data.last)
+  val firImag, firReal = LowpassFir()
+  streamVec.translateFragmentWith(imag1 ## imag0) >> firImag.s_axis_data
+  streamVec.translateFragmentWith(real1 ## real0) >> firReal.s_axis_data
+  val streamFiltered = firReal.m_axis_data.translateFragmentWith(
+    Vec(firReal.m_axis_data.fragment.subdivideIn(32 bits) ++ firImag.m_axis_data.fragment.subdivideIn(32 bits))
   )
-  val streamFilteredImag = firImag.m_axis_data.translateWith(
-    fragment(Vec(filteredImag0.takeHigh(16), filteredImag1.takeHigh(16)), firImag.m_axis_data.last)
-  )
+  firImag.m_axis_data.ready := streamFiltered.ready
+  val Seq(filteredReal0, filteredReal1, filteredImag0, filteredImag1) = streamFiltered.fragment
 
-  //    streamFilteredReal.translateWith(
-  //      fragment(
-  //        streamFilteredReal.fragment(1) ## streamFilteredReal.fragment(0) ## streamFilteredImag.fragment(
-  //          1
-  //        ) ## streamFilteredImag.fragment(0),
-  //        streamFilteredReal.last
-  //      )
-  //    ) >> streamOut
-  //    streamFilteredImag.ready := streamOut.ready
+//  streamFiltered.translateFragmentWith(filteredImag1.takeHigh(16) ## filteredImag0.takeHigh(16) ## filteredReal1.takeHigh(16) ## filteredReal0.takeHigh(16)) >> streamOut
 
-  // step 3: get phase and magnitude
-  // TODO: optimize CORDIC parameters,包括输入输出位数,iteration数量
+  //////////
+  // step 4: phase manipulation
+  //////////
   // 相比numpy,CORDIC需要输入具有更多的有效位数,面积允许的情况下,应使用较大的位宽
+  streamFiltered.ready.allowOverride()
   val cordic0, cordic1 = Atan2()
-  Seq(cordic0, cordic1).zipWithIndex.foreach { case (cordic, i) =>
-    cordic.s_axis_cartesian.data := firImag.m_axis_data.data(getSlice(32, i)) ## firReal.m_axis_data
-      .data((i + 1) * 32 - 1 downto i * 32)
-    cordic.s_axis_cartesian.valid := streamFilteredReal.valid
-    cordic.s_axis_cartesian.last := streamFilteredReal.last
-  }
-  streamFilteredReal.ready := cordic0.s_axis_cartesian.ready
-  streamFilteredImag.ready := cordic0.s_axis_cartesian.ready
+  streamFiltered.translateFragmentWith(filteredImag0 ## filteredReal0) >> cordic0.s_axis_cartesian
+  streamFiltered.translateFragmentWith(filteredImag1 ## filteredReal1) >> cordic1.s_axis_cartesian
 
-  cordic0.m_axis_dout.translateWith(
-    fragment(
-      cordic1.m_axis_dout.data ## cordic0.m_axis_dout.data ##
-        cordic1.m_axis_dout.data ## cordic0.m_axis_dout.data,
-      cordic0.m_axis_dout.last
-    )
+  cordic0.m_axis_dout.translateFragmentWith(
+    cordic1.m_axis_dout.fragment ## cordic0.m_axis_dout.fragment ##
+      cordic1.m_axis_dout.fragment ## cordic0.m_axis_dout.fragment
   ) >> streamOut
   cordic1.m_axis_dout.ready := streamOut.ready
-
-  // step 4: phase manipulation,从这一步开始使用浮点计算
-  // step 4.1 fixed2float
-  // step 4.2 unwrap
-  // step 4.3 spatial diff by gauge length
-  // step 4.4 float2fixed
-
-  // debug
-  streamRawData.setName("streamRawData").simPublic()
-  streamRawBuffered.setName("streamRawBuffered").simPublic()
-  streamCarrier.setName("streamCarrier").simPublic()
-  streamVec.setName("streamVec").simPublic()
-  streamVec.fragment.foreach(_.simPublic())
 
 }
 
