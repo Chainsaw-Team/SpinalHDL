@@ -28,8 +28,8 @@ case class UnwrapFloat() extends Module {
   // step0: delay
   val rawAndDelayed = DataDelay.getFixedDelayed(dataInAsBits, fixedDelay = 1)
   rawAndDelayed.ready.allowOverride()
-  val delayedFlow = rawAndDelayed.translateWith(rawAndDelayed.fragment.takeHigh(32)).addFragmentLast(dataIn.last)
-  val rawFlow = rawAndDelayed.translateWith(rawAndDelayed.fragment.takeLow(32)).addFragmentLast(dataIn.last)
+  val delayedFlow = rawAndDelayed.translateWith(rawAndDelayed.fragment.head).addFragmentLast(dataIn.last)
+  val rawFlow = rawAndDelayed.translateWith(rawAndDelayed.fragment.last).addFragmentLast(dataIn.last)
 
   // step1: get delta
   rawFlow >> sub0.s_axis_a // minuend
@@ -67,7 +67,9 @@ case class UnwrapFloat() extends Module {
 
   // step4: accumulation
   streamDeltaFixed >> acc0.s_axis_a
-  acc0.m_axis_result.toStreamOfFragment.transmuteWith(HardType(Floating32())).addFragmentLast(acc0.m_axis_result.last) >> dataOut
+  acc0.m_axis_result.toStreamOfFragment
+    .transmuteWith(HardType(Floating32()))
+    .addFragmentLast(acc0.m_axis_result.last) >> dataOut
 
 }
 

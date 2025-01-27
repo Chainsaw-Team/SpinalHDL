@@ -16,5 +16,6 @@ lazy val root = (project in file("."))
     name := "chainsaw",
     libraryDependencies ++= Seq(spinalCore, spinalLib, spinalIdslPlugin),
     libraryDependencies += "io.jhdf" % "jhdf" % "0.8.4", // for reading hdf5 files
-    libraryDependencies += "org.scalatest" %% "scalatest" % scalatestVersion % "test"
+    libraryDependencies += "org.scalatest" %% "scalatest" % scalatestVersion % "test",
+    libraryDependencies += "org.nd4j" % "nd4j-native-platform" % "1.0.0-M2.1" // 添加ND4J库
   )

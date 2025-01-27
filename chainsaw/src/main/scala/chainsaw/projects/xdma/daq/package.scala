@@ -37,7 +37,8 @@ package object daq {
 
       println(hint)
 
-      SimConfig.withXSim.withWave // 使用XSim进行仿真
+//      SimConfig.withXSim.withWave
+      SimConfig.withXSim // using XSim
         .withXilinxDevice("XCKU060-FFVA1156-2-i".toLowerCase())
         .withXSimSourcesPaths(
           xciSourcesPaths = ArrayBuffer(),
@@ -70,20 +71,23 @@ package object daq {
     def translateFragmentWith[T2 <: Data](data: T2) = stream.translateWith(fragment(data, stream.last))
   }
 
-//  implicit class FloatingPointUtils(f: Floating) {
-//    def isNormalized = f.exponent =/= f.exponent.getZero && f.exponent =/= f.exponent.getAllTrue
-//
-//    def isDenormalized = f.exponent === f.exponent.getZero
-//
-//    def isSpecial = f.exponent === f.exponent.getAllTrue
-//
-//    def significandValue = Mux(isNormalized, B(1, 1 bits) ## f.mantissa, B(0, 1 bits) ## f.mantissa).asUInt
-//
-//    def exponentValue = Mux(isNormalized, f.exponent, B(1, f.exponentSize bits)).asUInt
-//
-//    def isSinglePrecision: Boolean = f.exponentSize == 8 && f.mantissaSize == 23
-//
-//    def isDoublePrecision: Boolean = f.exponentSize == 11 && f.mantissaSize == 52
-//  }
+  import org.nd4j.linalg.factory.Nd4j
+  import org.nd4j.linalg.api.ndarray.INDArray
+
+  object NpyReader {
+    def apply(npyPath: String): Array[Array[Int]] = {
+      // 提供 .npy 文件路径
+
+      // 使用 ND4J 加载 .npy 文件
+      val data: INDArray = Nd4j.createFromNpyFile(new java.io.File(npyPath))
+
+      // 如果需要将数据转换为 Scala 的二维数组
+      val shape = data.shape()
+      val rows = shape(0)
+      val cols = shape(1)
+      Array.tabulate(rows.toInt, cols.toInt) { (i, j) => data.getInt(i, j) }
+
+    }
+  }
 
 }

@@ -4,6 +4,7 @@ import chainsaw.projects.xdma.daq.customizedIps.{DataDelay, DataDelayConfig}
 import chainsaw.projects.xdma.daq.ku060Ips._
 import spinal.core._
 import spinal.core.sim.SimDataPimper
+import spinal.lib.experimental.math.Floating32
 import spinal.lib.{Fragment, _}
 
 import scala.collection.Seq
@@ -12,23 +13,28 @@ import scala.math
 
 // TODO: 在没有特殊字段的前提下,blackbox中的Axi4Stream应当被提取为Stream或Flow,而不是完整的Axi4Stream
 // TODO: optimize CORDIC parameters,包括输入输出位数,iteration数量
+// TODO: test when frameSize / gaugeLength change
 
 case class ComponentDemodulator(carrierFreq: HertzNumber) extends Module {
+
+  type BitStream = Stream[Fragment[Bits]]
+
+  val GAUGE_POINTS_MAX = 250
+  val PULSE_VALID_POINTS_MAX = 2000
 
   val OUTPUT_WIDTH = 32
   val OUTPUT_FRACTIONAL_WIDTH = 20
   val OUTPUT_STRAIN_RESOLUTION = 0.025 / 0.23 / (1 << 20) // 0.23rad <-> 0.025με / gauge length
   println(s"strain/gauge length resolution = ${OUTPUT_STRAIN_RESOLUTION * 1e12}pε/m")
+  println(s"gauge length max = ${GAUGE_POINTS_MAX * 2 * 0.2}m")
+  println(s"fiber length max = ${PULSE_VALID_POINTS_MAX * 2 * 0.2}m")
 
-  def getSlice(length: Int, index: Int) = (index + 1) * length - 1 downto index * length
-
-  val vectorWidth = 2
-
-  val streamIn = slave Stream Fragment(Vec(SInt(16 bits), 4)) // earlier data in lower index
-  val streamOut = master Stream Fragment(Bits(64 bits)) // earlier data in lower bits
-
-  val channel0 = streamIn.fragment.take(vectorWidth)
-  val channel1 = streamIn.fragment.takeRight(vectorWidth)
+  val streamIn = slave Stream Fragment(Vec(SInt(16 bits), 4)) // x0, x1, y0, y1
+  val streamOut = master Stream Fragment(Vec(SInt(16 bits), 4))
+  val gaugePointsIn = in UInt (log2Up(GAUGE_POINTS_MAX + 1) bits)
+  val pulseValidPointsIn = in UInt (log2Up(PULSE_VALID_POINTS_MAX + 1) bits)
+  val streamOutFloat = master Stream Fragment(Vec(Floating32(), 2))
+//  val streamOut = master Stream Fragment(Bits(64 bits)) // earlier data in lower bits
 
   //////////
   // parameter preparation
@@ -38,27 +44,43 @@ case class ComponentDemodulator(carrierFreq: HertzNumber) extends Module {
   val DDS_OUTPUT_WIDTH = 16
   val SAMPLING_FREQ = 250e6
 
-  def ddsSynth(freq: Double) = {
-    def round2even(x: Double) = {
-      val a = math.ceil(x)
-      val b = math.floor(x)
-      (if (a.toInt % 2 == 0) a else b).toInt
-    }
-    val phaseInc = round2even(freq * (1 << PHASE_WIDTH) / SAMPLING_FREQ)
-    val actualFreq = phaseInc * SAMPLING_FREQ / (1 << PHASE_WIDTH)
-    val bias = math.abs(freq - actualFreq)
-    println(s"inc = $phaseInc, bias = $bias Hz")
-    phaseInc
-  }
-
-  def getPhaseData(resync: Bool, inc: Int, offset: Int) = {
+  def getPhaseData(resync: Bool, inc: Int, offset: Int) = { // according to DDS IP data structure
     val dataFieldSize = math.ceil(PHASE_WIDTH.toDouble / 8).toInt * 8
     B(0, 7 bits) ## resync ## B(offset, dataFieldSize bits) ## B(inc, dataFieldSize bits)
   }
 
-  val frameDone = RegInit(True)
-  when(streamIn.last && streamIn.valid)(frameDone.set()).elsewhen(streamIn.valid)(frameDone.clear())
-  val resync = frameDone && streamIn.valid
+  def mult(a: Stream[Fragment[Bits]], b: Stream[Fragment[Bits]]) = {
+    val mult = FloatMult()
+    a >> mult.s_axis_a
+    b >> mult.s_axis_b
+    mult.m_axis_result
+  }
+
+  def add(a: Stream[Fragment[Bits]], b: Stream[Fragment[Bits]]) = {
+    val mult = FloatAdd()
+    a >> mult.s_axis_a
+    b >> mult.s_axis_b
+    mult.m_axis_result
+  }
+
+  def sub(a: Stream[Fragment[Bits]], b: Stream[Fragment[Bits]]) = {
+    val mult = FloatSub()
+    a >> mult.s_axis_a
+    b >> mult.s_axis_b
+    mult.m_axis_result
+  }
+
+  def get_diff(r: BitStream, rd: BitStream, i: BitStream, id: BitStream) = {
+    val left = Seq(r, i, r, i)
+    val right = Seq(rd, id, id, rd)
+    left.foreach(_.ready.allowOverride())
+    right.foreach(_.ready.allowOverride())
+    val diffStage0 = left.zip(right).map { case (a, b) => mult(a, b) }
+    val Seq(a, b, c, d) = diffStage0
+    Seq(add(a, b), sub(c, d))
+  }
+
+  val resync = streamIn.start
   val phaseInc = (carrierFreq.toDouble * DDS_MODULUS / SAMPLING_FREQ).toInt
   val phaseOffsets = Seq(0, phaseInc / 2)
   assert(phaseInc % 2 == 0)
@@ -90,20 +112,14 @@ case class ComponentDemodulator(carrierFreq: HertzNumber) extends Module {
   val Seq(x0, x1, y0, y1) = streamRawAndCarrier.payload._1.fragment
   val Seq(sin0, cos0, sin1, cos1) = streamRawAndCarrier.payload._2.fragment
 
-//  streamRawAndCarrier.translateWith(
-//    fragment(cos1 ## cos0 ## sin1 ## sin0, streamRawAndCarrier.payload._1.last)
-//  ) >> streamOut
-
   //////////
   // step 2: get vector, 2 stage
   //////////
   val stage0 = Vec(sin0 * x0, sin0 * y0, cos0 * x0, cos0 * y0, sin1 * x1, sin1 * y1, cos1 * x1, cos1 * y1)
   val streamShifted = streamRawAndCarrier.translateWith(fragment(stage0, streamRawAndCarrier.payload._1.last)).m2sPipe()
-  val stage1 = streamShifted.fragment.grouped(2).toSeq.map(pair => (pair(0) +^ pair(1)).takeHigh(16))
+  val stage1 = streamShifted.fragment.grouped(2).toSeq.map(pair => (pair(0) +^ pair(1)).takeHigh(16)) // equals to >> 17
   val streamVec = streamShifted.translateWith(fragment(Vec(stage1), streamShifted.last)).m2sPipe()
   val Seq(imag0, real0, imag1, real1) = streamVec.fragment
-
-//  streamVec.translateFragmentWith(imag1 ## imag0 ## real1 ## real0) >> streamOut
 
   //////////
   // step 3: get filtered
@@ -119,22 +135,87 @@ case class ComponentDemodulator(carrierFreq: HertzNumber) extends Module {
   firImag.m_axis_data.ready := streamFiltered.ready
   val Seq(filteredReal0, filteredReal1, filteredImag0, filteredImag1) = streamFiltered.fragment
 
-//  streamFiltered.translateFragmentWith(filteredImag1.takeHigh(16) ## filteredImag0.takeHigh(16) ## filteredReal1.takeHigh(16) ## filteredReal0.takeHigh(16)) >> streamOut
+  streamFiltered.translateFragmentWith(Vec(streamFiltered.fragment.map(_.takeHigh(16).asSInt))) >> streamOut
 
   //////////
-  // step 4: phase manipulation
+  // step 4: get spatial diffed
   //////////
-  // 相比numpy,CORDIC需要输入具有更多的有效位数,面积允许的情况下,应使用较大的位宽
+  // streamFiltered -> fixed2float -> streamFloat
+  val fixed2Floats = Seq.fill(4)(Fixed32_16ToFloat())
   streamFiltered.ready.allowOverride()
-  val cordic0, cordic1 = Atan2()
-  streamFiltered.translateFragmentWith(filteredImag0 ## filteredReal0) >> cordic0.s_axis_cartesian
-  streamFiltered.translateFragmentWith(filteredImag1 ## filteredReal1) >> cordic1.s_axis_cartesian
+  (0 until 4).foreach { i =>
+    streamFiltered.translateFragmentWith(streamFiltered.fragment(i)) >>
+      fixed2Floats(i).s_axis_a
+  }
+  val streamFloat =
+    fixed2Floats.head.m_axis_result.translateFragmentWith(
+      Vec(fixed2Floats.map(_.m_axis_result.fragment))
+    )
+  fixed2Floats.tail.foreach(_.m_axis_result.ready := streamFloat.ready)
 
-  cordic0.m_axis_dout.translateFragmentWith(
-    cordic1.m_axis_dout.fragment ## cordic0.m_axis_dout.fragment ##
-      cordic1.m_axis_dout.fragment ## cordic0.m_axis_dout.fragment
-  ) >> streamOut
-  cordic1.m_axis_dout.ready := streamOut.ready
+  // streamFloat -> delay ->  streamFloatDelayed
+  val gaugeDelay = DataDelay(DataDelayConfig(HardType(streamFloat.fragment), GAUGE_POINTS_MAX, 0))
+  streamFloat >> gaugeDelay.dataIn
+  gaugeDelay.delayIn := gaugePointsIn
+  val streamFloatDelayed = gaugeDelay.dataOut.translateFragmentWith(gaugeDelay.dataOut.fragment.head)
+
+  streamFloat.ready.allowOverride()
+  streamFloatDelayed.ready.allowOverride()
+  val Seq(r0, r1, i0, i1) = streamFloat.fragment.map(bits => streamFloat.translateFragmentWith(bits))
+  val Seq(r0d, r1d, i0d, i1d) = streamFloatDelayed.fragment.map(bits => streamFloatDelayed.translateFragmentWith(bits))
+
+  val strain = get_diff(r0, r0d, i0, i0d) ++ get_diff(r1, r1d, i1, i1d)
+  val streamStrain = strain.head.translateFragmentWith(Vec(strain.map(_.fragment)))
+  strain.tail.foreach(_.ready := streamStrain.ready)
+  val Seq(diffReal0, diffImag0, diffReal1, diffImag1) = streamStrain.fragment
+
+  //////////
+  // step 5: get time diffed
+  //////////
+  // streamStrain -> delay ->  streamStrainDelayed
+  val pulseDelay = DataDelay(DataDelayConfig(HardType(streamStrain.fragment), PULSE_VALID_POINTS_MAX, 0))
+  streamStrain >> pulseDelay.dataIn
+  pulseDelay.dataIn.last.allowOverride()
+  pulseDelay.dataIn.last.clear() // TODO: set when pulseValidPoints change
+  pulseDelay.delayIn := pulseValidPointsIn
+  val streamStrainDelayed = pulseDelay.dataOut.translateFragmentWith(pulseDelay.dataOut.fragment.head)
+
+  streamStrain.ready.allowOverride()
+  streamStrainDelayed.ready.allowOverride()
+  val Seq(sr0, si0, sr1, si1) = streamStrain.fragment.map(bits => streamStrain.translateFragmentWith(bits))
+  val Seq(sr0d, si0d, sr1d, si1d) =
+    streamStrainDelayed.fragment.map(bits => streamStrainDelayed.translateFragmentWith(bits))
+  val strainRate = get_diff(sr0, sr0d, si0, si0d) ++ get_diff(sr1, sr1d, si1, si1d)
+  val streamStrainRate = strainRate.head.translateFragmentWith(Vec(strainRate.map(_.fragment)))
+  strainRate.tail.foreach(_.ready := streamStrainRate.ready)
+  val Seq(strainRateR0, strainRateI0, strainRateR1, strainRateI1) = streamStrainRate.fragment
+
+  streamOutFloat.arbitrationFrom(streamStrainRate)
+  streamOutFloat.fragment(0).assignFromBits(strainRateR0)
+  streamOutFloat.fragment(1).assignFromBits(strainRateR1)
+  streamOutFloat.last := streamStrainRate.last
+
+  // TODO: frame buffer module
+  //////////
+  // step 6: get phase in rad
+  //////////
+  // streamStrainRate -> float2fixed -> streamStrainRateFixed
+
+  // streamStrainRateFixed -> CORDIC -> streamOut
+
+//  val delay0, delay1 = DataDelay(DataDelayConfig())
+
+//  // 相比numpy,CORDIC需要输入具有更多的有效位数,面积允许的情况下,应使用较大的位宽
+//  streamFiltered.ready.allowOverride()
+//  val cordic0, cordic1 = Atan2()
+//  streamFiltered.translateFragmentWith(filteredImag0 ## filteredReal0) >> cordic0.s_axis_cartesian
+//  streamFiltered.translateFragmentWith(filteredImag1 ## filteredReal1) >> cordic1.s_axis_cartesian
+//
+//  cordic0.m_axis_dout.translateFragmentWith(
+//    cordic1.m_axis_dout.fragment ## cordic0.m_axis_dout.fragment ##
+//      cordic1.m_axis_dout.fragment ## cordic0.m_axis_dout.fragment
+//  ) >> streamOut
+//  cordic1.m_axis_dout.ready := streamOut.ready
 
 }
 

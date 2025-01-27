@@ -6,6 +6,8 @@ import spinal.core._
 import spinal.core.sim._
 import spinal.lib.sim.{StreamDriver, StreamMonitor, StreamReadyRandomizer}
 
+import scala.language.postfixOps
+
 class DataDelayTest extends AnyFunSuiteLike {
 
   def testDataDelay(
@@ -23,7 +25,7 @@ class DataDelayTest extends AnyFunSuiteLike {
     val dataWidth = 8
 
 //    Config.sim.compile(DataDelay(DataDelayConfig(dataWidth, delayMax, paddingValue))).doSim { dut =>
-    SimConfig.withWave.compile(DataDelay(DataDelayConfig(dataWidth, delayMax, paddingValue))).doSim { dut =>
+    SimConfig.withWave.compile(DataDelay(DataDelayConfig(HardType(Bits(8 bits)), delayMax, paddingValue))).doSim { dut =>
       // initialization
       dut.dataIn.valid #= false
       dut.dataIn.last #= false
@@ -91,7 +93,7 @@ class DataDelayTest extends AnyFunSuiteLike {
       fork { // monitor thread
         StreamReadyRandomizer(dut.dataOut, dut.clockDomain).setFactor(0.5f) // downstream always ready
         val monitor = StreamMonitor(dut.dataOut, dut.clockDomain) { payload =>
-          result(peekRowId)(peekColId) = payload.fragment.toInt >> dataWidth
+          result(peekRowId)(peekColId) = payload.fragment.head.toInt >> dataWidth
 //          println(f"appending ${payload.data.toInt},rowId=$peekRowId,colId=$peekColId")
           peekColId += 1
           val last = peekColId == pulseValidPoints

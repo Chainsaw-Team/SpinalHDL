@@ -46,7 +46,7 @@ case class DasDemodulator() extends Module {
 
     val dem80 = ComponentDemodulator(80 MHz)
     streamForAlgo >> dem80.streamIn
-    dem80.streamOut >> demodulatedStream
+    dem80.streamOut.translateFragmentWith(dem80.streamOut.fragment.asBits) >> demodulatedStream // FIXME: data order
 
     // output
     when(en) {

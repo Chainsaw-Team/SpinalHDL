@@ -5,6 +5,8 @@ import spinal.core.sim._
 import spinal.core.{HertzNumber, IntToBuilder}
 import spinal.lib.sim._
 
+import java.io.FileOutputStream
+import java.nio.{ByteBuffer, ByteOrder}
 import scala.language.postfixOps
 
 class ComponentDemodulatorTest extends AnyFunSuiteLike {
@@ -17,28 +19,31 @@ class ComponentDemodulatorTest extends AnyFunSuiteLike {
       dataX: Seq[Seq[Short]],
       dataY: Seq[Seq[Short]],
       pulseGapPoints: Int
-  ): Array[Array[Int]] = {
+  ): (Array[Array[Int]], Array[Array[Float]]) = {
     val pulseCount = dataX.length
     val pulseValidPoints = dataX.head.length
-    val result = Array.fill(pulseCount)(Array.fill(pulseValidPoints * 2)(0))
-    var pokeRowId, pokeColId, peekRowId, peekColId = 0
+    val resultInt16 = Array.fill(pulseCount)(Array.fill(pulseValidPoints * 2)(0))
+    val resultFloat32 = Array.fill(pulseCount)(Array.fill(pulseValidPoints)(0f))
+    var pokeRowId, pokeColId, peekRowId, peekColId, peekFloatRowId, peekFloatColId = 0
 
     Config.sim.compile(ComponentDemodulator(carrierFreq)).doSim { dut =>
       // initialization
       dut.streamIn.valid #= false
       dut.streamIn.last #= false
       dut.streamOut.ready #= false
-      dut.clockDomain.forkStimulus(2)
+      dut.gaugePointsIn #= 10
+      dut.clockDomain.forkStimulus(250 MHz)
 
       // driver thread
       fork {
-        var finalCountDown = 10000 // extra cycles for monitor thread to collect output data
+        var finalCountDown = 200 // extra cycles for monitor thread to collect output data
         var gapCountDown = pulseGapPoints / 2
         var state = "run"
 
         val driver = StreamDriver(dut.streamIn, dut.clockDomain) { payload =>
           state match {
             case "run" => // poking pulse data into DUT
+              dut.pulseValidPointsIn #= dataX(pokeRowId).length
               payload.fragment(0) #= dataX(pokeRowId)(pokeColId) // x0
               payload.fragment(1) #= dataX(pokeRowId)(pokeColId + 1) // x1
               payload.fragment(2) #= dataY(pokeRowId)(pokeColId) // y0
@@ -49,7 +54,7 @@ class ComponentDemodulatorTest extends AnyFunSuiteLike {
               if (last) {
                 pokeRowId += 1
                 pokeColId = 0
-                print(f"\rsimulating: $pokeRowId/$pulseCount")
+                println(f"\rsimulating: $pokeRowId/$pulseCount")
                 state =
                   if (gapCountDown > 0) "gap"
                   else if (pokeRowId == pulseCount) "end"
@@ -91,12 +96,9 @@ class ComponentDemodulatorTest extends AnyFunSuiteLike {
       fork { // monitor thread
         StreamReadyRandomizer(dut.streamOut, dut.clockDomain).setFactor(1.0f) // downstream always ready
         val monitor = StreamMonitor(dut.streamOut, dut.clockDomain) { payload =>
-          // for bits
-          val bits = payload.fragment.toBigInt.toString(2).reverse.padTo(64, '0').reverse
-          val elements = bits.grouped(16).toSeq.reverse.map(twosComplementToInt) // lower bits -> earlier data
-          // for vec
-//          val elements = payload.fragment.map(_.toBigInt.toInt)
-          elements.zipWithIndex.foreach { case (int, i) => result(peekRowId)(peekColId + i) = int }
+          // for int16 * 4
+          val elements = payload.fragment.map(_.toBigInt.toInt)
+          elements.zipWithIndex.foreach { case (int, i) => resultInt16(peekRowId)(peekColId + i) = int }
           peekColId += elements.length
           val last = peekColId == pulseValidPoints * 2
           if (last) {
@@ -107,49 +109,87 @@ class ComponentDemodulatorTest extends AnyFunSuiteLike {
         }
       }
 
+      fork { // monitor thread
+        StreamReadyRandomizer(dut.streamOutFloat, dut.clockDomain).setFactor(1.0f) // downstream always ready
+        val monitor = StreamMonitor(dut.streamOutFloat, dut.clockDomain) { payload =>
+          // for int16 * 4
+          val elements = payload.fragment.map(_.toFloat)
+          elements.zipWithIndex.foreach { case (int, i) => resultFloat32(peekFloatRowId)(peekFloatColId + i) = int }
+          peekFloatColId += elements.length
+          val last = peekFloatColId == pulseValidPoints
+          if (last) {
+            peekFloatRowId += 1
+            peekFloatColId = 0
+          }
+
+        }
+      }
+
       while (true) { dut.clockDomain.waitSampling() }
     }
-    result.tail // as some function relies on signal last, behavior of the first pulse may differ from the others, drop it
+    (resultInt16, resultFloat32)
+  }
+
+  def writeInt16(fileName: String, data: Seq[Int]): Unit = {
+    val outputStream = new FileOutputStream(fileName)
+    try {
+      // 将数据按照 Little Endian 写入
+      data.foreach { value =>
+        val shortValue: Short = value.toShort // 转换为 Short 类型
+        val bytes = Array(
+          (shortValue & 0xff).toByte, // 取低字节
+          ((shortValue >> 8) & 0xff).toByte // 取高字节
+        )
+        outputStream.write(bytes)
+      }
+    } finally {
+      outputStream.close()
+    }
+  }
+
+  def writeFloat32(fileName: String, data: Seq[Float]): Unit = {
+    val outputStream = new FileOutputStream(fileName)
+    try {
+      // 将数据按照 Little Endian 写入
+      data.foreach { value =>
+        // 使用 ByteBuffer 将 Float 转换为 Little Endian 的字节数组
+        val buffer = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN)
+        buffer.putFloat(value)
+        outputStream.write(buffer.array()) // 写入字节
+      }
+    } finally {
+      outputStream.close()
+    }
+  }
+
+  test("test npy reader") {
+    NpyReader("/home/ltr/SpinalHDL/chainsaw-python/das/raw_data_x.npy")
   }
 
   test("test fixed pattern") {
 
-    val pulseValidPoints = 1024
-    def getSin(isSin: Boolean, freq: HertzNumber, offset: Double = 0.0) = {
-      val phases = (0 until pulseValidPoints).map(_ + offset).map(_ * 2 * Math.PI * freq.toDouble / 500e6)
-      phases.map(if (isSin) Math.sin else Math.cos).map(_ * 32767).map(_.toShort)
+    val pulseCount = 50
+    val pulseValidPoints = 2000
 
-    }
+    val dataX = NpyReader("/home/ltr/SpinalHDL/chainsaw-python/das/raw_data_x.npy")
+      .take(pulseCount)
+      .toSeq
+      .map(_.takeRight(pulseValidPoints).map(_.toShort).toSeq)
 
-    val dataX = Seq.fill(5)(getSin(isSin = true, 20 MHz, 0.0))
-    val dataY = Seq.fill(5)(getSin(isSin = false, 30 MHz, 0.0))
-    val result = testComponentDemodulator(80 MHz, dataX, dataY, 0)
+    val dataY = NpyReader("/home/ltr/SpinalHDL/chainsaw-python/das/raw_data_y.npy")
+      .take(pulseCount)
+      .toSeq
+      .map(_.takeRight(pulseValidPoints).map(_.toShort).toSeq)
 
-    import java.io.FileOutputStream
+    val (result, resultFloat) = testComponentDemodulator(80 MHz, dataX, dataY, 0)
 
-    def writeBinaryFile(fileName: String, data: Seq[Int]): Unit = {
-      val outputStream = new FileOutputStream(fileName)
-      try {
-        // 将数据按照 Little Endian 写入
-        data.foreach { value =>
-          val shortValue: Short = value.toShort // 转换为 Short 类型
-          val bytes = Array(
-            (shortValue & 0xff).toByte, // 取低字节
-            ((shortValue >> 8) & 0xff).toByte // 取高字节
-          )
-          outputStream.write(bytes)
-        }
-      } finally {
-        outputStream.close()
-      }
-    }
+    writeFloat32("result_float32.bin", resultFloat.flatten)
 
-    val upperResult = result.head.grouped(4).toSeq.flatMap(_.takeRight(2)) // higher bits
-    val lowerResult = result.head.grouped(4).toSeq.flatMap(_.take(2)) // lower bits
+    val upperResult = result.flatten.grouped(4).toSeq.flatMap(_.takeRight(2))
+    val lowerResult = result.flatten.grouped(4).toSeq.flatMap(_.take(2))
 
-    // 写入二进制文件
-    writeBinaryFile("upper_result.bin", upperResult)
-    writeBinaryFile("lower_result.bin", lowerResult)
+    writeInt16("upper_result.bin", upperResult)
+    writeInt16("lower_result.bin", lowerResult)
 
 //     cd
 //     cd  ~/SpinalHDL/simWorkspace/ComponentDemodulator/xsim

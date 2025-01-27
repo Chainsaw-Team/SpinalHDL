@@ -1,1 +1,5 @@
-print(set([1,2,3]) & set([2,3,4]))
+import numpy as np
+
+a = np.array([220586], dtype=np.int32)
+b = a.astype(np.float32)
+print(b)
