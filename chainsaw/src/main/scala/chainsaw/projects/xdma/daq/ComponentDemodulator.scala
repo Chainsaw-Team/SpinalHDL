@@ -15,7 +15,7 @@ import scala.math
 // TODO: optimize CORDIC parameters,包括输入输出位数,iteration数量
 // TODO: test when frameSize / gaugeLength change
 
-case class ComponentDemodulator(carrierFreq: HertzNumber) extends Module {
+case class ComponentDemodulator(carrierFreq: HertzNumber, debug: Boolean = false) extends Module {
 
   type BitStream = Stream[Fragment[Bits]]
 
@@ -33,8 +33,8 @@ case class ComponentDemodulator(carrierFreq: HertzNumber) extends Module {
   val streamOut = master Stream Fragment(Vec(SInt(16 bits), 4))
   val gaugePointsIn = in UInt (log2Up(GAUGE_POINTS_MAX + 1) bits)
   val pulseValidPointsIn = in UInt (log2Up(PULSE_VALID_POINTS_MAX + 1) bits)
-  val streamOutFloat = master Stream Fragment(Vec(Floating32(), 2))
-//  val streamOut = master Stream Fragment(Bits(64 bits)) // earlier data in lower bits
+  // export floating data when debugging
+  val streamOutFloat = debug generate (master Stream Fragment(Vec(Floating32(), 2)))
 
   //////////
   // parameter preparation
@@ -86,10 +86,6 @@ case class ComponentDemodulator(carrierFreq: HertzNumber) extends Module {
   assert(phaseInc % 2 == 0)
 
   //////////
-  // stream datapath
-  //////////
-
-  //////////
   // step 1: get synced carrier(fork-queue-join structure)
   //////////
   val Seq(streamRawData, streamForCarrier) = StreamFork(streamIn, 2) // fork
@@ -113,7 +109,7 @@ case class ComponentDemodulator(carrierFreq: HertzNumber) extends Module {
   val Seq(sin0, cos0, sin1, cos1) = streamRawAndCarrier.payload._2.fragment
 
   //////////
-  // step 2: get vector, 2 stage
+  // step 2: get vector with 2-stage pipelining
   //////////
   val stage0 = Vec(sin0 * x0, sin0 * y0, cos0 * x0, cos0 * y0, sin1 * x1, sin1 * y1, cos1 * x1, cos1 * y1)
   val streamShifted = streamRawAndCarrier.translateWith(fragment(stage0, streamRawAndCarrier.payload._1.last)).m2sPipe()
@@ -135,13 +131,11 @@ case class ComponentDemodulator(carrierFreq: HertzNumber) extends Module {
   firImag.m_axis_data.ready := streamFiltered.ready
   val Seq(filteredReal0, filteredReal1, filteredImag0, filteredImag1) = streamFiltered.fragment
 
-  streamFiltered.translateFragmentWith(Vec(streamFiltered.fragment.map(_.takeHigh(16).asSInt))) >> streamOut
-
   //////////
   // step 4: get spatial diffed
   //////////
   // streamFiltered -> fixed2float -> streamFloat
-  val fixed2Floats = Seq.fill(4)(Fixed32_16ToFloat())
+  val fixed2Floats = Seq.fill(4)(Fixed32_24ToFloat())
   streamFiltered.ready.allowOverride()
   (0 until 4).foreach { i =>
     streamFiltered.translateFragmentWith(streamFiltered.fragment(i)) >>
@@ -167,7 +161,7 @@ case class ComponentDemodulator(carrierFreq: HertzNumber) extends Module {
   val strain = get_diff(r0, r0d, i0, i0d) ++ get_diff(r1, r1d, i1, i1d)
   val streamStrain = strain.head.translateFragmentWith(Vec(strain.map(_.fragment)))
   strain.tail.foreach(_.ready := streamStrain.ready)
-  val Seq(diffReal0, diffImag0, diffReal1, diffImag1) = streamStrain.fragment
+  val Seq(strainR0, strainI0, strainR1, strainI1) = streamStrain.fragment
 
   //////////
   // step 5: get time diffed
@@ -190,35 +184,41 @@ case class ComponentDemodulator(carrierFreq: HertzNumber) extends Module {
   strainRate.tail.foreach(_.ready := streamStrainRate.ready)
   val Seq(strainRateR0, strainRateI0, strainRateR1, strainRateI1) = streamStrainRate.fragment
 
-  streamOutFloat.arbitrationFrom(streamStrainRate)
-  streamOutFloat.fragment(0).assignFromBits(strainRateR0)
-  streamOutFloat.fragment(1).assignFromBits(strainRateR1)
-  streamOutFloat.last := streamStrainRate.last
+  if (debug) {
+    streamOutFloat.arbitrationFrom(streamStrainRate)
+    streamOutFloat.fragment(0).assignFromBits(strainRateR0)
+    streamOutFloat.fragment(1).assignFromBits(strainRateR1)
+    streamOutFloat.last := streamStrainRate.last
+  }
 
-  // TODO: frame buffer module
   //////////
   // step 6: get phase in rad
   //////////
   // streamStrainRate -> float2fixed -> streamStrainRateFixed
+  val float2Fixeds = Seq.fill(4)(FloatToFixed32_16())
+  streamStrainRate.ready.allowOverride()
+  (0 until 4).foreach { i =>
+    streamStrainRate.translateFragmentWith(streamStrainRate.fragment(i)) >> float2Fixeds(i).s_axis_a
+  }
+  val streamStrainRateFixed =
+    float2Fixeds.head.m_axis_result.translateWith(
+      fragment(Vec(float2Fixeds.map(_.m_axis_result.data)), float2Fixeds.head.m_axis_result.last)
+    )
+  float2Fixeds.tail.foreach(_.m_axis_result.ready := streamStrainRateFixed.ready)
+  val Seq(strainRateFR0, strainRateFI0, strainRateFR1, strainRateFI1) = streamStrainRateFixed.fragment
 
   // streamStrainRateFixed -> CORDIC -> streamOut
-
-//  val delay0, delay1 = DataDelay(DataDelayConfig())
-
-//  // 相比numpy,CORDIC需要输入具有更多的有效位数,面积允许的情况下,应使用较大的位宽
-//  streamFiltered.ready.allowOverride()
-//  val cordic0, cordic1 = Atan2()
-//  streamFiltered.translateFragmentWith(filteredImag0 ## filteredReal0) >> cordic0.s_axis_cartesian
-//  streamFiltered.translateFragmentWith(filteredImag1 ## filteredReal1) >> cordic1.s_axis_cartesian
-//
-//  cordic0.m_axis_dout.translateFragmentWith(
-//    cordic1.m_axis_dout.fragment ## cordic0.m_axis_dout.fragment ##
-//      cordic1.m_axis_dout.fragment ## cordic0.m_axis_dout.fragment
-//  ) >> streamOut
-//  cordic1.m_axis_dout.ready := streamOut.ready
+  streamStrainRateFixed.ready.allowOverride()
+  val cordic0, cordic1 = Atan2()
+  streamStrainRateFixed.translateFragmentWith(strainRateFI0 ## strainRateFR0) >> cordic0.s_axis_cartesian
+  streamStrainRateFixed.translateFragmentWith(strainRateFI1 ## strainRateFR1) >> cordic1.s_axis_cartesian
+  cordic0.m_axis_dout.translateFragmentWith(
+    Vec(Seq(cordic0, cordic1, cordic0, cordic1).map(_.m_axis_dout.fragment.asSInt))
+  ) >> streamOut
+  cordic1.m_axis_dout.ready := streamOut.ready
 
 }
 
 object ComponentDemodulator extends App {
-  Config.spinal.generateVerilog(ComponentDemodulator(80 MHz))
+  Config.spinal.generateVerilog(ComponentDemodulator(80 MHz, debug = true))
 }

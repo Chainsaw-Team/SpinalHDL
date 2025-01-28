@@ -1,6 +1,5 @@
 import matplotlib.pyplot as plt
 import numpy as np
-import scipy.signal as signal
 
 
 def swap(data):
@@ -10,11 +9,11 @@ def swap(data):
     return ret
 
 
-def get_sin(pulse_count:int, pulse_valid_points, is_sin: bool, freq: float, offset: float = 0):
+def get_sin(pulse_count: int, pulse_valid_points, is_sin: bool, freq: float, offset: float = 0):
     phases = np.arange(offset, pulse_valid_points + offset, 1) * 2 * np.pi * freq / 500e6
     wave = np.sin(phases) if is_sin else np.cos(phases)
     wave = np.tile(wave, (pulse_count, 1))
-    return (wave * 32767).astype(np.int32)
+    return (wave * (1 << 15)).astype(np.int32)
 
 
 def get_delayed(delay_points, data: np.ndarray, frame_based=False):
@@ -47,10 +46,11 @@ def get_phase_diff(real, imag, real_delayed, imag_delayed):
     return target_real, target_imag
 
 
-def plot_time_and_frequency(golden, fs, file_name, yours=None):
-    # golden = golden[200:400]
-    # if yours is not None:
-    #     yours = yours[200:400]
+def plot_time_and_frequency(golden, fs, file_name, yours=None, plot_range=None):
+    if plot_range is not None:
+        golden = golden[plot_range]
+        if yours is not None:
+            yours = yours[plot_range]
 
     # 创建时间轴
     t = np.arange(len(golden)) / fs  # 时间轴，长度与数据序列一致
@@ -97,3 +97,9 @@ fir_coeffs = np.array(
      629, 631, 631, 631, 629, 626, 621, 616, 609, 601, 592, 581, 570, 558, 544, 530, 515, 500, 483, 466, 449, 431, 413,
      394, 375, 357, 338, 319, 300, 281, 263, 245, 228, 211, 194, 178, 163, 149, 135, 122, 110, 99, 89, 79, 71, 63, 57,
      51, 47, 43, 40, 39, 38]).astype(np.float32)
+
+def plot_waterfall(data):
+    plt.figure(figsize=(12, 12))
+    plt.subplot(1, 1, 1)
+    plt.imshow(data, aspect='auto', vmin=-1000, vmax=1000, cmap='rainbow')
+    plt.savefig('waterfall.png')

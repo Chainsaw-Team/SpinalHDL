@@ -26,12 +26,12 @@ class ComponentDemodulatorTest extends AnyFunSuiteLike {
     val resultFloat32 = Array.fill(pulseCount)(Array.fill(pulseValidPoints)(0f))
     var pokeRowId, pokeColId, peekRowId, peekColId, peekFloatRowId, peekFloatColId = 0
 
-    Config.sim.compile(ComponentDemodulator(carrierFreq)).doSim { dut =>
+    Config.sim.compile(ComponentDemodulator(carrierFreq, debug = true)).doSim { dut =>
       // initialization
       dut.streamIn.valid #= false
       dut.streamIn.last #= false
       dut.streamOut.ready #= false
-      dut.gaugePointsIn #= 10
+      dut.gaugePointsIn #= 50
       dut.clockDomain.forkStimulus(250 MHz)
 
       // driver thread
@@ -43,7 +43,7 @@ class ComponentDemodulatorTest extends AnyFunSuiteLike {
         val driver = StreamDriver(dut.streamIn, dut.clockDomain) { payload =>
           state match {
             case "run" => // poking pulse data into DUT
-              dut.pulseValidPointsIn #= dataX(pokeRowId).length
+              dut.pulseValidPointsIn #= dataX(pokeRowId).length / 2
               payload.fragment(0) #= dataX(pokeRowId)(pokeColId) // x0
               payload.fragment(1) #= dataX(pokeRowId)(pokeColId + 1) // x1
               payload.fragment(2) #= dataY(pokeRowId)(pokeColId) // y0
@@ -162,13 +162,9 @@ class ComponentDemodulatorTest extends AnyFunSuiteLike {
     }
   }
 
-  test("test npy reader") {
-    NpyReader("/home/ltr/SpinalHDL/chainsaw-python/das/raw_data_x.npy")
-  }
-
   test("test fixed pattern") {
 
-    val pulseCount = 50
+    val pulseCount = 10
     val pulseValidPoints = 2000
 
     val dataX = NpyReader("/home/ltr/SpinalHDL/chainsaw-python/das/raw_data_x.npy")

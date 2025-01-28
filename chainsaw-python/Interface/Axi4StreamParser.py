@@ -25,8 +25,9 @@ class Axi4StreamParser(InterfaceParser):
                 interface_parameters.append("useLast = true")
             if any(field.field_name == "tkeep" for field in interface["fields"]):
                 interface_parameters.append("useKeep = true")
-            if any(field.field_name == "tuser" for field in interface["fields"]):
-                interface_parameters.append("useUser = true")
+            tuser = tid = next((field for field in interface["fields"] if field.field_name == "tuser"), None)
+            if tuser:
+                interface_parameters.append(f"useUser = true, userWidth = {tuser.bit_width}")
             tid = next((field for field in interface["fields"] if field.field_name == "tid"), None)
             if tid:
                 interface_parameters.append(f"useId = true, idWidth = {tid.bit_width}")
