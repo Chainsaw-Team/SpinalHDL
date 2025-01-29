@@ -167,12 +167,12 @@ class ComponentDemodulatorTest extends AnyFunSuiteLike {
     val pulseCount = 10
     val pulseValidPoints = 2000
 
-    val dataX = NpyReader("/home/ltr/SpinalHDL/chainsaw-python/das/raw_data_x.npy")
+    val dataX = NpyReader("./chainsaw-python/das/raw_data_x.npy")
       .take(pulseCount)
       .toSeq
       .map(_.takeRight(pulseValidPoints).map(_.toShort).toSeq)
 
-    val dataY = NpyReader("/home/ltr/SpinalHDL/chainsaw-python/das/raw_data_y.npy")
+    val dataY = NpyReader("./chainsaw-python/das/raw_data_y.npy")
       .take(pulseCount)
       .toSeq
       .map(_.takeRight(pulseValidPoints).map(_.toShort).toSeq)

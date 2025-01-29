@@ -212,6 +212,7 @@ case class ComponentDemodulator(carrierFreq: HertzNumber, debug: Boolean = false
   val cordic0, cordic1 = Atan2()
   streamStrainRateFixed.translateFragmentWith(strainRateFI0 ## strainRateFR0) >> cordic0.s_axis_cartesian
   streamStrainRateFixed.translateFragmentWith(strainRateFI1 ## strainRateFR1) >> cordic1.s_axis_cartesian
+
   cordic0.m_axis_dout.translateFragmentWith(
     Vec(Seq(cordic0, cordic1, cordic0, cordic1).map(_.m_axis_dout.fragment.asSInt))
   ) >> streamOut
