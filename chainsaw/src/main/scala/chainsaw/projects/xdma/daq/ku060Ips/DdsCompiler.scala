@@ -15,7 +15,7 @@ case class DdsCompiler() extends BlackBox {
   val event_pinc_invalid = out Bool ()
   val event_poff_invalid = out Bool ()
 
-  addRTLPath(raw"/home/ltr/SpinalHDL/KU060IP/DdsCompiler/DdsCompiler.xci")
+  addRTLPath(raw"/home/ltr/IdeaProjects/SpinalHDL/KU060IP/DdsCompiler/DdsCompiler.xci")
 
   mapCurrentClockDomain(aclk, reset=null, enable=null)
 }

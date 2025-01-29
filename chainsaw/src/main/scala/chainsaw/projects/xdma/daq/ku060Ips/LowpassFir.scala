@@ -13,7 +13,7 @@ case class LowpassFir() extends BlackBox {
   m_axis_data.setNameForVivado()
   val aclk = in Bool ()
 
-  addRTLPath(raw"/home/ltr/SpinalHDL/KU060IP/LowpassFir/LowpassFir.xci")
+  addRTLPath(raw"/home/ltr/IdeaProjects/SpinalHDL/KU060IP/LowpassFir/LowpassFir.xci")
 
   mapCurrentClockDomain(aclk, reset=null, enable=null)
 }

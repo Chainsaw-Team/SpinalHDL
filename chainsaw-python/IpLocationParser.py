@@ -67,6 +67,8 @@ def scan_ip_location(ip_location_dir: str, target_dir: str):
                     ip_name = os.path.splitext(os.path.basename(xci_file))[0]
                     scala_file_path = os.path.join(target_dir, f"{ip_name}.scala")
                     generate_blackbox(module_ios, scala_file_path, xci_file)
+                # else:
+                #     print(f"no stub file found for {xci_file}")
 
 
 # TODO: 除了生成blackbox之外,还生成一个仅包含此blackbox的DUT,以方便测试
@@ -189,6 +191,6 @@ if __name__ == "__main__":
     parser_config.parse_interfaces = True
     parser_config.target_package_name = "chainsaw.projects.xdma.daq.ku060Ips"
     # conversion
-    ip_location = "/home/ltr/SpinalHDL/KU060IP"  # your Vivado IP location
-    scala_package_path = "/home/ltr/SpinalHDL/chainsaw/src/main/scala/chainsaw/projects/xdma/daq/ku060Ips"  # your Scala Package location
+    ip_location = "/home/ltr/IdeaProjects/SpinalHDL/KU060IP"  # your Vivado IP location
+    scala_package_path = "/home/ltr/IdeaProjects/SpinalHDL/chainsaw/src/main/scala/chainsaw/projects/xdma/daq/ku060Ips"  # your Scala Package location
     scan_ip_location(ip_location, scala_package_path)

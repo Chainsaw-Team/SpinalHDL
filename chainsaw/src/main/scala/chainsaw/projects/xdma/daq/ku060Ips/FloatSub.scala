@@ -15,7 +15,7 @@ case class FloatSub() extends BlackBox {
   m_axis_result.setNameForVivado()
   val aclk = in Bool ()
 
-  addRTLPath(raw"/home/ltr/SpinalHDL/KU060IP/FloatSub/FloatSub.xci")
+  addRTLPath(raw"/home/ltr/IdeaProjects/SpinalHDL/KU060IP/FloatSub/FloatSub.xci")
 
   mapCurrentClockDomain(aclk, reset=null, enable=null)
 }

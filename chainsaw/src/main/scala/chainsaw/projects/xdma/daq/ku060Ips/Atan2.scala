@@ -13,7 +13,7 @@ case class Atan2() extends BlackBox {
   m_axis_dout.setNameForVivado()
   val aclk = in Bool ()
 
-  addRTLPath(raw"/home/ltr/SpinalHDL/KU060IP/Atan2/Atan2.xci")
+  addRTLPath(raw"/home/ltr/IdeaProjects/SpinalHDL/KU060IP/Atan2/Atan2.xci")
 
   mapCurrentClockDomain(aclk, reset=null, enable=null)
 }

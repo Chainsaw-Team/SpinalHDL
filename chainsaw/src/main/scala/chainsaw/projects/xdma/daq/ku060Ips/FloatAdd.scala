@@ -15,7 +15,7 @@ case class FloatAdd() extends BlackBox {
   m_axis_result.setNameForVivado()
   val aclk = in Bool ()
 
-  addRTLPath(raw"/home/ltr/SpinalHDL/KU060IP/FloatAdd/FloatAdd.xci")
+  addRTLPath(raw"/home/ltr/IdeaProjects/SpinalHDL/KU060IP/FloatAdd/FloatAdd.xci")
 
   mapCurrentClockDomain(aclk, reset=null, enable=null)
 }

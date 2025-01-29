@@ -6,14 +6,16 @@ import spinal.lib.bus.amba4.axis.Axi4Stream
 import spinal.lib.bus.amba4.axis.Axi4StreamConfig
         
         
-case class Fixed16_13ToFloat() extends BlackBox {
-  val s_axis_a = slave(Stream(Bits(16 bits)))
+case class FloatMult() extends BlackBox {
+  val s_axis_a = slave(Stream(Fragment(Bits(32 bits))))
   s_axis_a.setNameForVivado()
-  val m_axis_result = master(Stream(Bits(32 bits)))
+  val s_axis_b = slave(Stream(Fragment(Bits(32 bits))))
+  s_axis_b.setNameForVivado()
+  val m_axis_result = master(Stream(Fragment(Bits(32 bits))))
   m_axis_result.setNameForVivado()
   val aclk = in Bool ()
 
-  addRTLPath(raw"/home/ltr/SpinalHDL/KU060IP/Fixed16_13ToFloat/Fixed16_13ToFloat.xci")
+  addRTLPath(raw"/home/ltr/IdeaProjects/SpinalHDL/KU060IP/FloatMult/FloatMult.xci")
 
   mapCurrentClockDomain(aclk, reset=null, enable=null)
 }
