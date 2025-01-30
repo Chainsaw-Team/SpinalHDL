@@ -54,7 +54,7 @@ class ComponentDemodulatorTest extends AnyFunSuiteLike {
               if (last) {
                 pokeRowId += 1
                 pokeColId = 0
-                println(f"\rsimulating: $pokeRowId/$pulseCount")
+                print(f"\rsimulating: $pokeRowId/$pulseCount")
                 state =
                   if (gapCountDown > 0) "gap"
                   else if (pokeRowId == pulseCount) "end"

@@ -1,9 +1,6 @@
 import os
 
-import matplotlib.pyplot as plt
-import numpy as np
 import scipy.signal as signal
-from scipy.constants import golden
 
 from algo_ops import *
 
@@ -25,8 +22,11 @@ cos = get_sin(pulse_count, pulse_valid_points, False, carrier_freq, offset=2)
 vecReal = (data_x * cos + data_y * cos) >> 17
 vecImag = (data_x * sin + data_y * sin) >> 17
 
-filtered_real = (signal.lfilter(fir_coeffs, 1, vecReal) / (1 << 24)).astype(np.float32)
-filtered_imag = (signal.lfilter(fir_coeffs, 1, vecImag) / (1 << 24)).astype(np.float32)
+filtered_real:np.ndarray = (signal.lfilter(fir_coeffs, 1, vecReal) / (1 << 24))
+filtered_imag:np.ndarray = (signal.lfilter(fir_coeffs, 1, vecImag) / (1 << 24))
+
+filtered_real = filtered_real.astype(np.float32)
+filtered_imag = filtered_imag.astype(np.float32)
 
 strain_real, strain_imag = get_phase_diff(
     filtered_real, filtered_imag,

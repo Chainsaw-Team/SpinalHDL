@@ -17,7 +17,7 @@ package object daq {
   val axku5DaqRtlDir = new File("./Axku5Daq")
 
   object Config {
-    def spinal = SpinalConfig(
+    def spinal: SpinalConfig = SpinalConfig(
       targetDirectory = "hw/gen",
       defaultConfigForClockDomains = ClockDomainConfig(
         resetActiveLevel = HIGH
@@ -25,7 +25,7 @@ package object daq {
       onlyStdLogicVectorAtTopLevelIo = true
     )
 
-    def sim = {
+    def sim: SpinalSimConfig = {
 
       val hint =
         """
@@ -38,7 +38,7 @@ package object daq {
       println(hint)
 
 //      SimConfig.withXSim.withWave
-      SimConfig.withXSim // using XSim
+      SimConfig.withXSim.withWave // using XSim
         .withXilinxDevice("XCKU060-FFVA1156-2-i".toLowerCase())
         .withXSimSourcesPaths(
           xciSourcesPaths = ArrayBuffer(),
@@ -46,18 +46,6 @@ package object daq {
         )
 
     }
-  }
-
-  def getFrameHead[T <: Data](stream: Stream[Fragment[T]]) = {
-    val frameDone = RegInit(True)
-    when(stream.last && stream.valid)(frameDone.set()).elsewhen(stream.valid)(frameDone.clear())
-    frameDone && stream.valid
-  }
-
-  def getAxiFrameHead(stream: Stream[Axi4StreamBundle]) = {
-    val frameDone = RegInit(True)
-    when(stream.last && stream.valid)(frameDone.set()).elsewhen(stream.valid)(frameDone.clear())
-    frameDone && stream.valid
   }
 
   def fragment[T <: Data](data: T, last: Bool): Fragment[T] = {
@@ -68,7 +56,7 @@ package object daq {
   }
 
   implicit class StreamFragmentUtils[T <: Data](stream: Stream[Fragment[T]]) {
-    def translateFragmentWith[T2 <: Data](data: T2) = stream.translateWith(fragment(data, stream.last))
+    def translateFragmentWith[T2 <: Data](data: T2): Stream[Fragment[T2]] = stream.translateWith(fragment(data, stream.last))
   }
 
   import org.nd4j.linalg.factory.Nd4j

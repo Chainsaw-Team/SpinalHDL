@@ -24,7 +24,7 @@ class DataDelayTest extends AnyFunSuiteLike {
 
     val dataWidth = 8
 
-//    Config.sim.compile(DataDelay(DataDelayConfig(dataWidth, delayMax, paddingValue))).doSim { dut =>
+//    Config.sim.compile(DataDelay(DataDelayConfig(HardType(Bits(8 bits)),delayMax, paddingValue))).doSim { dut =>
     SimConfig.withWave.compile(DataDelay(DataDelayConfig(HardType(Bits(8 bits)), delayMax, paddingValue))).doSim { dut =>
       // initialization
       dut.dataIn.valid #= false
@@ -43,8 +43,7 @@ class DataDelayTest extends AnyFunSuiteLike {
           state match {
             case "run" => // poking pulse data into DUT
               dut.delayIn #= delays(pokeRowId)
-              payload.fragment #= data(pokeRowId)(pokeColId) // x0
-//              println(f"poking ${data(pokeRowId)(pokeColId)},rowId=$pokeRowId,colId=$pokeColId")
+              payload.fragment #= data(pokeRowId)(pokeColId)
               pokeColId += 1
               val last = pokeColId == pulseValidPoints
               payload.last #= last
@@ -93,8 +92,7 @@ class DataDelayTest extends AnyFunSuiteLike {
       fork { // monitor thread
         StreamReadyRandomizer(dut.dataOut, dut.clockDomain).setFactor(0.5f) // downstream always ready
         val monitor = StreamMonitor(dut.dataOut, dut.clockDomain) { payload =>
-          result(peekRowId)(peekColId) = payload.fragment.head.toInt >> dataWidth
-//          println(f"appending ${payload.data.toInt},rowId=$peekRowId,colId=$peekColId")
+          result(peekRowId)(peekColId) = payload.fragment.head.toInt
           peekColId += 1
           val last = peekColId == pulseValidPoints
           if (last) {
