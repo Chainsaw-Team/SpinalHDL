@@ -7,36 +7,56 @@ import spinal.lib.sim._
 
 import java.io.FileOutputStream
 import java.nio.{ByteBuffer, ByteOrder}
+import scala.collection.mutable.ArrayBuffer
 import scala.language.postfixOps
+
+object JVMThreadsExample {
+  def listAllThreads(): Unit = {
+    val threads = Thread.getAllStackTraces.keySet()
+    println("Active JVM Threads:")
+    threads.forEach(t => println(s"${t.getName} - State: ${t.getState}"))
+  }
+
+  def main(args: Array[String]): Unit = {
+    // 创建一些新线程
+    new Thread(() => println("Thread 1 started")).start()
+    new Thread(() => println("Thread 2 started")).start()
+
+    // 列出所有线程
+    Thread.sleep(500)
+    listAllThreads()
+  }
+}
 
 class ComponentDemodulatorTest extends AnyFunSuiteLike {
 
-  /** @param dataX two-dimensional data array, each row represent a pulse
-    * @param dataY same as pulseX
-    */
+  case class TestConfig(gaugePoints: Int, pulseCount: Int, pulseValidPoints: Int)
+
   def testComponentDemodulator(
       carrierFreq: HertzNumber,
-      dataX: Seq[Seq[Short]],
-      dataY: Seq[Seq[Short]],
-      pulseGapPoints: Int
+      pulseGapPoints: Int,
+      testConfigs: Seq[TestConfig]
   ): (Array[Array[Int]], Array[Array[Float]]) = {
-    val pulseCount = dataX.length
-    val pulseValidPoints = dataX.head.length
-    val resultInt16 = Array.fill(pulseCount)(Array.fill(pulseValidPoints * 2)(0))
-    val resultFloat32 = Array.fill(pulseCount)(Array.fill(pulseValidPoints)(0f))
-    var pokeRowId, pokeColId, peekRowId, peekColId, peekFloatRowId, peekFloatColId = 0
+
+    // reading stimulus
+    val dataAllX = NpyReader("./chainsaw-python/das/raw_data_x.npy")
+    val dataAllY = NpyReader("./chainsaw-python/das/raw_data_y.npy")
+    val resultAllInt16 = ArrayBuffer[Array[Int]]()
+    val resultAllFloat32 = ArrayBuffer[Array[Float]]()
 
     Config.sim.compile(ComponentDemodulator(carrierFreq, debug = true)).doSim { dut =>
-      // initialization
-      dut.streamIn.valid #= false
-      dut.streamIn.last #= false
-      dut.streamOut.ready #= false
-      dut.gaugePointsIn #= 50
-      dut.clockDomain.forkStimulus(250 MHz)
+      // state variables
+      var pokeRowId, pokeColId, peekRowId, peekColId, peekFloatRowId, peekFloatColId = 0
+      var pulseCount, pulseValidPoints = 0
+      var dataX = Array[Array[Int]]()
+      var dataY = Array[Array[Int]]()
+      var resultInt16 = Array[Array[Int]]()
+      var resultFloat32 = Array[Array[Float]]()
 
+      // initializing threads
+      dut.clockDomain.forkStimulus(250 MHz)
       // driver thread
-      fork {
-        var finalCountDown = 200 // extra cycles for monitor thread to collect output data
+      val threadDriver = fork {
         var gapCountDown = pulseGapPoints / 2
         var state = "run"
 
@@ -71,29 +91,14 @@ class ComponentDemodulatorTest extends AnyFunSuiteLike {
               false
             case "end" =>
               payload.last #= false
-              finalCountDown -= 1
-              if (finalCountDown <= 0) {
-                println()
-                simSuccess()
-              }
+              if (pokeRowId == 0 && pokeColId == 0) state = "run"
               false
           }
         }
         driver.setFactor(1.0f) // continuous input
       }
 
-      def twosComplementToInt(bits: String): Int = {
-        // 转换为整数，检查最高位（符号位）
-        val value = Integer.parseInt(bits, 2)
-        if (bits.head == '1') {
-          // 如果符号位是1，表示负数，要进行2's complement修正
-          value - (1 << bits.length)
-        } else {
-          value
-        }
-      }
-
-      fork { // monitor thread
+      val threadMonitorFixed = fork { // monitor thread
         StreamReadyRandomizer(dut.streamOut, dut.clockDomain).setFactor(1.0f) // downstream always ready
         val monitor = StreamMonitor(dut.streamOut, dut.clockDomain) { payload =>
           // for int16 * 4
@@ -109,10 +114,10 @@ class ComponentDemodulatorTest extends AnyFunSuiteLike {
         }
       }
 
-      fork { // monitor thread
+      val threadMonitorFloat = fork { // monitor thread
         StreamReadyRandomizer(dut.streamOutFloat, dut.clockDomain).setFactor(1.0f) // downstream always ready
         val monitor = StreamMonitor(dut.streamOutFloat, dut.clockDomain) { payload =>
-          // for int16 * 4
+          // for float32 * 2
           val elements = payload.fragment.map(_.toFloat)
           elements.zipWithIndex.foreach { case (int, i) => resultFloat32(peekFloatRowId)(peekFloatColId + i) = int }
           peekFloatColId += elements.length
@@ -121,13 +126,56 @@ class ComponentDemodulatorTest extends AnyFunSuiteLike {
             peekFloatRowId += 1
             peekFloatColId = 0
           }
-
         }
       }
 
-      while (true) { dut.clockDomain.waitSampling() }
+      def doSimOnce(config: TestConfig): Unit = {
+
+        println(s"config = $config")
+        pulseCount = config.pulseCount
+        pulseValidPoints = config.pulseValidPoints
+        // reset for stream Driver
+        dataX = dataAllX.take(pulseCount).map(_.takeRight(pulseValidPoints))
+        dataY = dataAllY.take(pulseCount).map(_.takeRight(pulseValidPoints))
+        pokeRowId = 0
+        pokeColId = 0
+        // reset for stream monitor
+        resultInt16 = Array.fill(pulseCount)(Array.fill(pulseValidPoints * 2)(0))
+        resultFloat32 = Array.fill(pulseCount)(Array.fill(pulseValidPoints)(0f))
+        peekRowId = 0
+        peekColId = 0
+        peekFloatRowId = 0
+        peekFloatColId = 0
+        println(s"params done")
+
+        // initialization
+        dut.streamIn.valid #= false
+        dut.streamIn.last #= false
+        dut.streamOut.ready #= false
+        dut.gaugePointsIn #= config.gaugePoints / 2
+        dut.pulseValidPointsIn #= pulseValidPoints / 2
+        println(s"params done")
+        // reset
+        dut.clockDomain.assertReset()
+        dut.clockDomain.waitActiveEdge(100)
+        dut.clockDomain.deassertReset()
+        println(s"reset done")
+
+        waitUntil(pokeRowId == pulseCount)
+        dut.clockDomain.waitSampling(200)
+        println()
+        println(
+          s"peekRowId = $peekRowId, peekFloatRowId = $peekFloatRowId, peekColId = $peekColId, peekFloatColId = $peekFloatColId"
+        )
+        resultAllInt16 ++= resultInt16
+        resultAllFloat32 ++= resultFloat32
+
+      }
+
+      testConfigs.foreach(doSimOnce)
+      simSuccess()
     }
-    (resultInt16, resultFloat32)
+    (resultAllInt16.toArray, resultAllFloat32.toArray)
   }
 
   def writeInt16(fileName: String, data: Seq[Int]): Unit = {
@@ -164,20 +212,12 @@ class ComponentDemodulatorTest extends AnyFunSuiteLike {
 
   test("test fixed pattern") {
 
-    val pulseCount = 10
-    val pulseValidPoints = 2000
-
-    val dataX = NpyReader("./chainsaw-python/das/raw_data_x.npy")
-      .take(pulseCount)
-      .toSeq
-      .map(_.takeRight(pulseValidPoints).map(_.toShort).toSeq)
-
-    val dataY = NpyReader("./chainsaw-python/das/raw_data_y.npy")
-      .take(pulseCount)
-      .toSeq
-      .map(_.takeRight(pulseValidPoints).map(_.toShort).toSeq)
-
-    val (result, resultFloat) = testComponentDemodulator(80 MHz, dataX, dataY, 0)
+    val testConfigs = Seq(
+      TestConfig(100, 5, 2000),
+      TestConfig(50, 5, 1000)
+    )
+    val (result, resultFloat) = testComponentDemodulator(80 MHz, 0, testConfigs)
+    println(s"result lengths = ${result.map(_.length).mkString(",")}")
 
     writeFloat32("result_float32.bin", resultFloat.flatten)
 

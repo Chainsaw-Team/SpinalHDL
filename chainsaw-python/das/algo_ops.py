@@ -88,7 +88,7 @@ def plot_time_and_frequency(golden, fs, file_name, yours=None, plot_range=None):
 
     # 调整布局并显示图像
     plt.tight_layout()
-    plt.savefig(f"./test/{file_name}")
+    plt.savefig(f"{file_name}")
 
 
 fir_coeffs = np.array(

@@ -12,5 +12,4 @@ else
   echo -e "open_wave_database ${module_name}.wdb" > view_wave.tcl
 fi
 
-# 执行 vivado 命令
 $VIVADO_HOME/bin/vivado -source view_wave.tcl

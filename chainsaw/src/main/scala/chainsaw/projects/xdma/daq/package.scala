@@ -37,7 +37,6 @@ package object daq {
 
       println(hint)
 
-//      SimConfig.withXSim.withWave
       SimConfig.withXSim.withWave // using XSim
         .withXilinxDevice("XCKU060-FFVA1156-2-i".toLowerCase())
         .withXSimSourcesPaths(
