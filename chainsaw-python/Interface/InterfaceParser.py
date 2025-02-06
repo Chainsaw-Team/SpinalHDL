@@ -18,6 +18,7 @@ class InterfaceParser:
         self.identifier = ""
         self.required_fields = []
         self.optional_fields = []
+        self.import_line = ""
 
     @property
     def all_fields(self):
@@ -36,6 +37,7 @@ class InterfaceParser:
         # 分组，根据端口名匹配接口
         grouped_interfaces = defaultdict(list)
         for candidate in candidates:
+            # print(candidate.name)
             io_name = candidate.name
             if self.identifier.lower() not in io_name.lower():
                 continue  # 必须包含 identifier
@@ -43,6 +45,7 @@ class InterfaceParser:
             for field in self.all_fields:
                 if io_name.endswith(f"_{field}"):
                     interface_name = io_name.replace(f"_{field}", "")
+                    # print(interface_name)
                     grouped_interfaces[interface_name].append(
                         IoDefinition(candidate.direction, candidate.bit_width, candidate.name, interface_name, field)
                     )
@@ -52,6 +55,7 @@ class InterfaceParser:
         valid_interfaces = []
         for interface_name, fields in grouped_interfaces.items():
             field_names = {field.field_name for field in fields}
+            # print(field_names)
             if all(field in field_names for field in self.required_fields):  # 必须包含所有必需字段
                 valid_interfaces.append({"name": interface_name, "fields": fields})
 

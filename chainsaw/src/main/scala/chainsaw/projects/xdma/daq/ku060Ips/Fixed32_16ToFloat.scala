@@ -13,7 +13,7 @@ case class Fixed32_16ToFloat() extends BlackBox {
   m_axis_result.setNameForVivado()
   val aclk = in Bool ()
 
-  addRTLPath(raw"/home/ltr/IdeaProjects/SpinalHDL/KU060IP/Fixed32_16ToFloat/Fixed32_16ToFloat.xci")
+  addRTLPath(raw"Fixed32_16ToFloat.xci")
 
   mapCurrentClockDomain(aclk, reset=null, enable=null)
 }

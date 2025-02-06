@@ -12,8 +12,14 @@ import scala.language.postfixOps
   * @param hardType
   * @param delayMax     The maximum programmable delay in clock cycles.
   * @param paddingValue The value output during the delay period before valid data is ready.
+  * @param lowLatency   When set, minimum delay = 1(otherwise 2). This option will result in the hardware implementation using async memory, which will lead to tighter timing constraints. On FPGAs, it will also cause significant overhead in distributed memory when delayMax is large.
   */
-case class DataDelayConfig[T <: Data](hardType: HardType[T], delayMax: Int, paddingValue: Int = 0)
+case class DataDelayConfig[T <: Data](
+    hardType: HardType[T],
+    delayMax: Int,
+    paddingValue: Int = 0,
+    lowLatency: Boolean = false
+)
 
 // FIXME： counter -> delayDone -> Mux -> dataOut may lead to bad critical path
 /** The DataDelay module introduces a configurable delay to streaming data, with support for AXI4-Stream interfaces.
@@ -53,7 +59,8 @@ case class DataDelay[T <: Data](config: DataDelayConfig[T]) extends Module {
   dataOut.arbitrationFrom(dataIn)
   dataOut.last := dataIn.last
   // delay path
-  val fifo = StreamFifo(dataIn.payloadType, depth = delayMax, latency = 0)
+  val minimumDelay = if (lowLatency) 1 else 2
+  val fifo = StreamFifo(dataIn.payloadType, depth = delayMax, latency = minimumDelay)
   fifo.io.push.fragment := dataIn.fragment
   fifo.io.push.last := dataIn.last
   fifo.io.push.valid := dataIn.fire
@@ -75,7 +82,7 @@ case class DataDelay[T <: Data](config: DataDelayConfig[T]) extends Module {
   // read delay a the start of a frame
   when(dataIn.start)(delayInReg := delayIn)
 
-  assert(delayInReg > 0) // behavior is unpredictable when delay = 0
+  assert(delayInReg >= minimumDelay) // behavior is unpredictable when delay = 0
 
 }
 

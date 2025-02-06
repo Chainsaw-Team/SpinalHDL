@@ -7,8 +7,10 @@ import spinal.lib.bus.amba4.axis.Axi4Stream
 import spinal.lib.bus.amba4.axis.Axi4Stream.{Axi4Stream, Axi4StreamBundle}
 import spinal.lib.UIntPimper
 
-import java.io.File
+import java.io.{File, FileOutputStream}
+import java.nio.{ByteBuffer, ByteOrder}
 import scala.collection.mutable.ArrayBuffer
+import scala.language.postfixOps
 
 package object daq {
 
@@ -55,7 +57,8 @@ package object daq {
   }
 
   implicit class StreamFragmentUtils[T <: Data](stream: Stream[Fragment[T]]) {
-    def translateFragmentWith[T2 <: Data](data: T2): Stream[Fragment[T2]] = stream.translateWith(fragment(data, stream.last))
+    def translateFragmentWith[T2 <: Data](data: T2): Stream[Fragment[T2]] =
+      stream.translateWith(fragment(data, stream.last))
   }
 
   import org.nd4j.linalg.factory.Nd4j
@@ -74,6 +77,54 @@ package object daq {
       val cols = shape(1)
       Array.tabulate(rows.toInt, cols.toInt) { (i, j) => data.getInt(i, j) }
 
+    }
+  }
+
+  // top-level parameters
+  val GAUGE_POINTS_MAX = 250
+  val PULSE_VALID_POINTS_MAX = 125000 // 50km / 0.2m / 2
+  val PULSE_PERIOD_POINTS_MAX = 1 << 28
+  val CARRIER_FREQS = Seq(80 MHz)
+  val OUTPUT_STRAIN_RESOLUTION = 0.025 / 1e6 / 0.23 / (1 << 13) // 0.23rad <-> 0.025με / gauge length, output format fixed16_13
+
+  println("system parameters:")
+  println(s"\tinterrogation rate min = ${1.0 / (PULSE_PERIOD_POINTS_MAX * 4).toDouble * 1e9} Hz")
+  println(s"\tstrain/gauge length resolution = ${OUTPUT_STRAIN_RESOLUTION * 1e12}pε/m")
+  println(s"\tgauge length max = ${GAUGE_POINTS_MAX * 2 * 0.2}m")
+  println(s"\tfiber length max = ${PULSE_VALID_POINTS_MAX * 2 * 0.2}m")
+  println()
+
+  case class TestConfig(gaugePoints: Int, pulseCount: Int, pulseValidPoints: Int, demodulationEnabled: Int = 0)
+
+  def writeInt16(fileName: String, data: Seq[Int]): Unit = {
+    val outputStream = new FileOutputStream(fileName)
+    try {
+      // 将数据按照 Little Endian 写入
+      data.foreach { value =>
+        val shortValue: Short = value.toShort // 转换为 Short 类型
+        val bytes = Array(
+          (shortValue & 0xff).toByte, // 取低字节
+          ((shortValue >> 8) & 0xff).toByte // 取高字节
+        )
+        outputStream.write(bytes)
+      }
+    } finally {
+      outputStream.close()
+    }
+  }
+
+  def writeFloat32(fileName: String, data: Seq[Float]): Unit = {
+    val outputStream = new FileOutputStream(fileName)
+    try {
+      // 将数据按照 Little Endian 写入
+      data.foreach { value =>
+        // 使用 ByteBuffer 将 Float 转换为 Little Endian 的字节数组
+        val buffer = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN)
+        buffer.putFloat(value)
+        outputStream.write(buffer.array()) // 写入字节
+      }
+    } finally {
+      outputStream.close()
     }
   }
 

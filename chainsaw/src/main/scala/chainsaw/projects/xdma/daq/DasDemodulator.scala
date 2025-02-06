@@ -1,6 +1,6 @@
 package chainsaw.projects.xdma.daq
 import spinal.core._
-import spinal.lib._
+import spinal.lib.{Fragment, _}
 
 import scala.collection.Seq
 import scala.language.postfixOps
@@ -10,6 +10,9 @@ import ku060Ips._
 case class DasDemodulator() extends Module {
 
   val clk, rstn = in Bool ()
+  val gaugePointsIn = in UInt (log2Up(GAUGE_POINTS_MAX + 1) bits)
+  val pulseValidPointsIn = in UInt (log2Up(PULSE_VALID_POINTS_MAX + 1) bits)
+
   val dataClockDomain = new ClockDomain(
     clock = clk,
     reset = rstn,
@@ -17,36 +20,31 @@ case class DasDemodulator() extends Module {
     frequency = FixedFrequency(250 MHz)
   )
 
-  def fragment[T <: Data](data: T, last: Bool): Fragment[T] = {
-    val fragment = Fragment(HardType(data))
-    fragment.fragment := data
-    fragment.last := last
-    fragment
-  }
-
-  val vectorWidth = 2
-
   val streamIn = slave Stream Fragment(Vec(SInt(16 bits), 4)) // earlier data in lower index
-  val streamOut = master Stream Fragment(Bits(64 bits)) // earlier data in lower bits
+  val streamOut = master Stream Fragment(Vec(SInt(16 bits), 4)) // earlier data in lower bits
   val en = in Bool () // output demodulated phase when enabled, raw data when disabled
 
-  val channel0 = streamIn.fragment.take(vectorWidth)
-  val channel1 = streamIn.fragment.takeRight(vectorWidth)
+  val Seq(x0, x1, y0, y1) = streamIn.fragment // earlier data in higher index
 
   new ClockingArea(dataClockDomain) {
-
-    val Seq(streamForAlgo, streamForRaw) = StreamFork(streamIn, 2, synchronous = true)
+    streamIn.ready.allowOverride()
 
     // datapath for raw data
-    val rawData = channel1(1) ## channel0(1) ## channel1(0) ## channel0(0)
-    val rawStream = streamForRaw.translateWith(fragment(rawData, streamIn.last))
+    val rawStream = streamIn.translateWith(fragment(Vec(x1, y1, x0, y0), streamIn.last))
 
     // datapath for demodulation,streamForAlgo -> demodulatedStream
-    val demodulatedStream = Stream Fragment Bits(64 bits) // output of this branch
+    val demodulatedStream = Stream Fragment Vec(SInt(16 bits), 4) // output of this branch
 
-    val dem80 = ComponentDemodulator(80 MHz)
-    streamForAlgo >> dem80.streamIn
-    dem80.streamOut.translateFragmentWith(dem80.streamOut.fragment.asBits) >> demodulatedStream // FIXME: data order
+    val componentDemodulators = CARRIER_FREQS.map(freq => ComponentDemodulator(freq))
+    componentDemodulators.foreach { dem =>
+      streamIn.translateFragmentWith(Vec(x0, x1, y0, y1)) >> dem.streamIn
+      dem.gaugePointsIn := gaugePointsIn
+      dem.pulseValidPointsIn := pulseValidPointsIn
+      val Seq(r0, r1, _, _) = dem.streamOut.fragment
+      dem.streamOut.translateFragmentWith(Vec(r1, r1, r0, r0)) >> demodulatedStream
+    }
+
+    streamIn.ready.set() // no back pressure
 
     // output
     when(en) {

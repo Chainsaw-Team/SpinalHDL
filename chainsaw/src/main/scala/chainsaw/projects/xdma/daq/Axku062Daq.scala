@@ -83,10 +83,8 @@ case class Axku062Daq() extends Axku062 {
   // pulse generation
   fl1010.J2_P.head.asOutput() := peripheral.pulse_gen_0
   fl1010.J2_N.head.asOutput() := False
-  sma_clk_p.asOutput() := peripheral.pulse_gen_0
   fl1010.J2_P.last.asOutput() := peripheral.pulse_gen_1
   fl1010.J2_N.last.asOutput() := False
-  sma_clk_n.asOutput() := peripheral.pulse_gen_1
 
   // DEBUG
   val debugClockingArea = new ClockingArea(defaultClockDomain) {
@@ -130,5 +128,8 @@ case class Axku062Daq() extends Axku062 {
     led(3) := ~mysoowFmc.hmc7044_gpio4
 
     led_test.clearAll()
+
+    // SMAs
+    sma_clk_p.asOutput() := peripheral.data_clk
   }
 }

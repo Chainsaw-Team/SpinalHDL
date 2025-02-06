@@ -19,18 +19,8 @@ case class ComponentDemodulator(carrierFreq: HertzNumber, debug: Boolean = false
 
   type BitStream = Stream[Fragment[Bits]]
 
-  val GAUGE_POINTS_MAX = 250
-  val PULSE_VALID_POINTS_MAX = 2000
-
-  val OUTPUT_WIDTH = 32
-  val OUTPUT_FRACTIONAL_WIDTH = 20
-  val OUTPUT_STRAIN_RESOLUTION = 0.025 / 0.23 / (1 << 20) // 0.23rad <-> 0.025με / gauge length
-  println(s"strain/gauge length resolution = ${OUTPUT_STRAIN_RESOLUTION * 1e12}pε/m")
-  println(s"gauge length max = ${GAUGE_POINTS_MAX * 2 * 0.2}m")
-  println(s"fiber length max = ${PULSE_VALID_POINTS_MAX * 2 * 0.2}m")
-
   val streamIn = slave Stream Fragment(Vec(SInt(16 bits), 4)) // x0, x1, y0, y1
-  val streamOut = master Stream Fragment(Vec(SInt(16 bits), 4))
+  val streamOut = master Stream Fragment(Vec(SInt(16 bits), 4)) // r0, r1, r0, r1
   val gaugePointsIn = in UInt (log2Up(GAUGE_POINTS_MAX + 1) bits)
   val pulseValidPointsIn = in UInt (log2Up(PULSE_VALID_POINTS_MAX + 1) bits)
   // export floating data when debugging

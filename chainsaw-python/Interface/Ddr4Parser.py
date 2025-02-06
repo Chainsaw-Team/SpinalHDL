@@ -5,6 +5,7 @@ class Ddr4Parser(InterfaceParser):
     def __init__(self):
         super().__init__()
         self.identifier = "ddr4"
+        self.import_line = "import spinal.lib.com.ddr.Ddr4Interface"
         self.required_fields = [
             "act_n", "adr", "ba", "bg", "ck_c", "ck_t", "cke", "cs_n",
             "dm_n", "dq", "dqs_c", "dqs_t", "odt", "reset_n"

@@ -25,87 +25,88 @@ class DataDelayTest extends AnyFunSuiteLike {
     val dataWidth = 8
 
 //    Config.sim.compile(DataDelay(DataDelayConfig(HardType(Bits(8 bits)),delayMax, paddingValue))).doSim { dut =>
-    SimConfig.withWave.compile(DataDelay(DataDelayConfig(HardType(Bits(8 bits)), delayMax, paddingValue))).doSim { dut =>
-      // initialization
-      dut.dataIn.valid #= false
-      dut.dataIn.last #= false
-      dut.dataOut.ready #= true
-      dut.delayIn #= delays.head
-      dut.clockDomain.forkStimulus(2)
+    SimConfig.withWave
+      .compile(DataDelay(DataDelayConfig(HardType(Bits(8 bits)), delayMax, paddingValue, lowLatency = true)))
+      .doSim { dut =>
+        // initialization
+        dut.dataIn.valid #= false
+        dut.dataIn.last #= false
+        dut.dataOut.ready #= true
+        dut.delayIn #= delays.head
+        dut.clockDomain.forkStimulus(2)
 
-      // driver thread
-      fork {
-        var finalCountDown = 10000 // extra cycles for monitor thread to collect output data
-        var gapCountDown = pulseGapPoints
-        var state = "run"
+        // driver thread
+        fork {
+          var finalCountDown = 10000 // extra cycles for monitor thread to collect output data
+          var gapCountDown = pulseGapPoints
+          var state = "run"
 
-        val driver = StreamDriver(dut.dataIn, dut.clockDomain) { payload =>
-          state match {
-            case "run" => // poking pulse data into DUT
-              dut.delayIn #= delays(pokeRowId)
-              payload.fragment #= data(pokeRowId)(pokeColId)
-              pokeColId += 1
-              val last = pokeColId == pulseValidPoints
-              payload.last #= last
-              if (last) {
-                pokeRowId += 1
-                pokeColId = 0
-                print(f"\rsimulating: $pokeRowId/$pulseCount")
-                state =
-                  if (gapCountDown > 0) "gap"
-                  else if (pokeRowId == pulseCount) "end"
-                  else "run"
-              }
-              true
-            case "gap" => // poking gap data(invalid) into DUT
-              payload.last #= false
-              gapCountDown -= 1
-              if (gapCountDown <= 0) { // state transition
-                gapCountDown = pulseGapPoints
-                state = if (pokeRowId == pulseCount) "end" else "run"
-              }
-              false
-            case "end" =>
-              payload.last #= false
-              finalCountDown -= 1
-              if (finalCountDown <= 0) {
-                println()
-                simSuccess()
-              }
-              false
+          val driver = StreamDriver(dut.dataIn, dut.clockDomain) { payload =>
+            state match {
+              case "run" => // poking pulse data into DUT
+                dut.delayIn #= delays(pokeRowId)
+                payload.fragment #= data(pokeRowId)(pokeColId)
+                pokeColId += 1
+                val last = pokeColId == pulseValidPoints
+                payload.last #= last
+                if (last) {
+                  pokeRowId += 1
+                  pokeColId = 0
+                  print(f"\rsimulating: $pokeRowId/$pulseCount")
+                  state =
+                    if (gapCountDown > 0) "gap"
+                    else if (pokeRowId == pulseCount) "end"
+                    else "run"
+                }
+                true
+              case "gap" => // poking gap data(invalid) into DUT
+                payload.last #= false
+                gapCountDown -= 1
+                if (gapCountDown <= 0) { // state transition
+                  gapCountDown = pulseGapPoints
+                  state = if (pokeRowId == pulseCount) "end" else "run"
+                }
+                false
+              case "end" =>
+                payload.last #= false
+                finalCountDown -= 1
+                if (finalCountDown <= 0) {
+                  println()
+                  simSuccess()
+                }
+                false
+            }
+          }
+          driver.setFactor(0.5f) // continuous input
+        }
+
+        def twosComplementToInt(bits: String): Int = {
+          // 转换为整数，检查最高位（符号位）
+          val value = Integer.parseInt(bits, 2)
+          if (bits.head == '1') {
+            // 如果符号位是1，表示负数，要进行2's complement修正
+            value - (1 << bits.length)
+          } else {
+            value
           }
         }
-        driver.setFactor(0.5f) // continuous input
-      }
 
-      def twosComplementToInt(bits: String): Int = {
-        // 转换为整数，检查最高位（符号位）
-        val value = Integer.parseInt(bits, 2)
-        if (bits.head == '1') {
-          // 如果符号位是1，表示负数，要进行2's complement修正
-          value - (1 << bits.length)
-        } else {
-          value
-        }
-      }
+        fork { // monitor thread
+          StreamReadyRandomizer(dut.dataOut, dut.clockDomain).setFactor(0.5f) // downstream always ready
+          val monitor = StreamMonitor(dut.dataOut, dut.clockDomain) { payload =>
+            result(peekRowId)(peekColId) = payload.fragment.head.toInt
+            peekColId += 1
+            val last = peekColId == pulseValidPoints
+            if (last) {
+              peekRowId += 1
+              peekColId = 0
+            }
 
-      fork { // monitor thread
-        StreamReadyRandomizer(dut.dataOut, dut.clockDomain).setFactor(0.5f) // downstream always ready
-        val monitor = StreamMonitor(dut.dataOut, dut.clockDomain) { payload =>
-          result(peekRowId)(peekColId) = payload.fragment.head.toInt
-          peekColId += 1
-          val last = peekColId == pulseValidPoints
-          if (last) {
-            peekRowId += 1
-            peekColId = 0
           }
-
-
         }
-      }
 
-      while (true) { dut.clockDomain.waitSampling() }
-    }
+        while (true) { dut.clockDomain.waitSampling() }
+      }
     result // as some function relies on signal last, behavior of the first pulse may differ from the others, drop it
   }
 
@@ -114,7 +115,7 @@ class DataDelayTest extends AnyFunSuiteLike {
     val pulseValidPoints = 100
     val delayMax = 50
     val paddingValue = 17
-    val delays = Seq(1, 3, 5, delayMax, 5, 3, 1) // require delay > 1
+    val delays = Seq(1, 3, 5, delayMax, 5, 3, 1) // require delay >= 1
 
     def testWithGap(pulseGapPoints: Int): Unit = {
       val raw = (10 until pulseValidPoints + 10).map(_.toShort)

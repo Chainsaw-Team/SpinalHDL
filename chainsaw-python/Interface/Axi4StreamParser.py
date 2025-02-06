@@ -5,6 +5,7 @@ class Axi4StreamParser(InterfaceParser):
     def __init__(self):
         super().__init__()
         self.identifier = "axis"
+        self.import_line = "import spinal.lib.bus.amba4.axis.Axi4Stream\nimport spinal.lib.bus.amba4.axis.Axi4StreamConfig"
         self.required_fields = ["tvalid", "tready", "tdata"]
         self.optional_fields = ["tlast", "tkeep", "tuser", "tid", "tdest"]
 

@@ -1,4 +1,6 @@
 import json
+from re import match
+from unittest import case
 
 from pyverilog.vparser.parser import parse
 
@@ -29,46 +31,43 @@ XCI_EXT = ".xci"
 VERILOG_EXT = ".v"
 STUB_IDENTIFIER = "stub"
 
+import os
+import warnings
 
-def find_files_by_extension(directory, extension, contains=None):
-    """
-    Helper function to find files with a specific extension in a directory.
-    Optionally filters files that contain a specific substring.
-
-    :param directory: The directory to search in.
-    :param extension: File extension to look for (e.g., ".xci").
-    :param contains: Filter files containing this substring.
-    :return: List of file paths.
-    """
-    return [
-        os.path.join(directory, f)
-        for f in os.listdir(directory)
-        if f.endswith(extension) and (contains is None or contains in f)
-    ]
-
+def get_black_box(wrapper_location:str, target_file_location:str):
+    module_ios = extract_modules_and_ios(wrapper_location)
+    generate_blackbox(module_ios, target_file_location)
 
 def scan_ip_location(ip_location_dir: str, target_dir: str):
     """
-    Scans the IP directory, finds `.xci` and `.v` files, and generates Scala blackbox files.
+    Scans the IP directory, finds `.xci` files, and searches for their corresponding stub files
+    in the entire `ip_location_dir` directory and subdirectories. Then, generates Scala blackbox files.
 
     :param ip_location_dir: Directory containing IP files.
     :param target_dir: Directory to store generated Scala blackbox files.
     """
     for root, _, files in os.walk(ip_location_dir):
-        if not root.endswith(EXCLUDE_DIR):
-            # Extract relevant files
-            xci_files = find_files_by_extension(root, XCI_EXT)
-            stub_files = find_files_by_extension(root, VERILOG_EXT, contains=STUB_IDENTIFIER)
-
-            # Process files
+        # find IPs(.xci files)
+        if EXCLUDE_DIR not in root:
+            xci_files = [file for file in files if file.endswith(XCI_EXT)]
             for xci_file in xci_files:
-                if len(stub_files) == 1 and EXCLUDE_DIR not in xci_file:
-                    module_ios = extract_modules_and_ios(stub_files[0])
-                    ip_name = os.path.splitext(os.path.basename(xci_file))[0]
+                ip_name = os.path.splitext(os.path.basename(xci_file))[0]
+                # find _stub.v file for IP
+                stub_file_name = f"{ip_name}_stub.v"
+                stub_file = None
+                for root_stub, _, files_stub in os.walk(ip_location_dir):
+                    if EXCLUDE_DIR not in root_stub:
+                        for file in files_stub:
+                            if file == stub_file_name:
+                                stub_file = os.path.join(root_stub, file)
+
+                if stub_file:
+                    module_ios = extract_modules_and_ios(stub_file)
                     scala_file_path = os.path.join(target_dir, f"{ip_name}.scala")
-                    generate_blackbox(module_ios, scala_file_path, xci_file)
-                # else:
-                #     print(f"no stub file found for {xci_file}")
+                    xci_file_path = os.path.join(root, xci_file)
+                    generate_blackbox(module_ios, scala_file_path, xci_file_path)
+                else:
+                    warnings.warn(f"No stub file found for {xci_file}, please generate output first")
 
 
 # TODO: 除了生成blackbox之外,还生成一个仅包含此blackbox的DUT,以方便测试
@@ -80,11 +79,13 @@ def convert_io_to_scala(io_dict, xci_file_path=None):
     :param xci_file_path: Optional path to additional RTL.
     :return: Scala code as a string.
     """
-    scala_code = ""
+    import_code = ""
+    definition_code = ""
+
     parsers = [Ddr4Parser(), Axi4LiteParser(), Axi4StreamParser(), FlowParser()]
 
     for module_name, signals in io_dict.items():
-        scala_code += f"case class {module_name}() extends BlackBox {{\n"
+        definition_code += f"case class {module_name}() extends BlackBox {{\n"
         candidates = [IoDefinition(sig["direction"], sig["width"], name) for name, sig in signals.items()]
 
         # Generate interface definitions
@@ -92,28 +93,29 @@ def convert_io_to_scala(io_dict, xci_file_path=None):
             for parser in parsers:
                 interfaces = parser.get_interface_groups(candidates)
                 for interface in interfaces:
-                    scala_code += parser.get_definition(interface) + "\n"
+                    import_code += parser.import_line + "\n"
+                    definition_code += parser.get_definition(interface) + "\n"
                     candidates = [c for c in candidates if c.name not in [f.name for f in interface["fields"]]]
 
         # Add remaining ports
-        direction_map = {"Input": "in", "Output": "out"}
         for candidate in candidates:
-            direction = direction_map[candidate.direction]
-            if candidate.bit_width == 1:
-                scala_code += f"  val {candidate.name} = {direction} Bool ()\n"
-            else:
-                scala_code += f"  val {candidate.name} = {direction} Bits ({candidate.bit_width} bits)\n"
+            data_type = "Bool()" if candidate.bit_width == 1 else f"Bits({candidate.bit_width} bits)"
+            match candidate.direction:
+                case "Input": definition_code += f"  val {candidate.name} = in {data_type}\n"
+                case "Output": definition_code += f"  val {candidate.name} = out {data_type}\n"
+                case "Inout": definition_code += f"  val {candidate.name} = inout(Analog({data_type}))\n"
+
 
         # Add optional RTL path
         if xci_file_path:
-            scala_code += f"\n  addRTLPath(raw\"{xci_file_path}\")\n"
+            definition_code += f"\n  addRTLPath(raw\"{xci_file_path}\")\n"
         # mapping clock domain
         if "aclk" in signals:
             en = "aclken" if "aclken" in signals else "null"
             rst = "aresetn" if "aresetn" in signals else "null"
-            scala_code += f"\n  mapCurrentClockDomain(aclk, reset={rst}, enable={en})\n"
-        scala_code += "}\n\n"
-    return scala_code
+            definition_code += f"\n  mapCurrentClockDomain(aclk, reset={rst}, enable={en})\n"
+        definition_code += "}\n\n"
+    return import_code + "\n" + definition_code
 
 
 def generate_blackbox(description, scala_file_path, xci_file_path: str = None):
@@ -127,9 +129,6 @@ def generate_blackbox(description, scala_file_path, xci_file_path: str = None):
         """
 import spinal.core._
 import spinal.lib._
-import spinal.lib.bus.amba4.axis.Axi4Stream
-import spinal.lib.bus.amba4.axis.Axi4StreamConfig
-        
         """
     )
     contents.append(convert_io_to_scala(description, xci_file_path))
@@ -146,7 +145,7 @@ def extract_modules_and_ios(file_path):
     """
     print(f"parsing {file_path}...")
 
-    io_types = ['Input', 'Output']  # TODO: 考虑inout的情况
+    io_types = ['Input', 'Output', "Inout"]  # TODO: 考虑inout的情况
     ast, _ = parse([file_path])  # get AST
     result = {}
 
@@ -188,9 +187,13 @@ def extract_modules_and_ios(file_path):
 # 示例代码运行
 if __name__ == "__main__":
     # modify global configuration
-    parser_config.parse_interfaces = True
-    parser_config.target_package_name = "chainsaw.projects.xdma.daq.ku060Ips"
-    # conversion
-    ip_location = "/home/ltr/IdeaProjects/SpinalHDL/KU060IP"  # your Vivado IP location
-    scala_package_path = "/home/ltr/IdeaProjects/SpinalHDL/chainsaw/src/main/scala/chainsaw/projects/xdma/daq/ku060Ips"  # your Scala Package location
-    scan_ip_location(ip_location, scala_package_path)
+    # parser_config.parse_interfaces = True
+    # parser_config.target_package_name = "chainsaw.projects.xdma.daq.ku060Ips"
+    # # conversion
+    # ip_location = "/home/ltr/IdeaProjects/SpinalHDL/KU060IP"  # your Vivado IP location
+    # scala_package_path = "/home/ltr/IdeaProjects/SpinalHDL/chainsaw/src/main/scala/chainsaw/projects/xdma/daq/ku060Ips"  # your Scala Package location
+    # scan_ip_location(ip_location, scala_package_path)
+
+    parser_config.target_package_name = "chainsaw.projects.xdma.daq"
+    get_black_box("/home/ltr/IdeaProjects/SpinalHDL/Axku062Daq/Axku062Daq/Axku062Daq.gen/sources_1/bd/Peripheral/hdl/Peripheral_wrapper.v",
+                  "/home/ltr/IdeaProjects/SpinalHDL/chainsaw/src/main/scala/chainsaw/projects/xdma/daq/Axku062Wrapper.scala")

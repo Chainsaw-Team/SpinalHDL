@@ -5,32 +5,10 @@ import spinal.core.sim._
 import spinal.core.{HertzNumber, IntToBuilder}
 import spinal.lib.sim._
 
-import java.io.FileOutputStream
-import java.nio.{ByteBuffer, ByteOrder}
 import scala.collection.mutable.ArrayBuffer
 import scala.language.postfixOps
 
-object JVMThreadsExample {
-  def listAllThreads(): Unit = {
-    val threads = Thread.getAllStackTraces.keySet()
-    println("Active JVM Threads:")
-    threads.forEach(t => println(s"${t.getName} - State: ${t.getState}"))
-  }
-
-  def main(args: Array[String]): Unit = {
-    // 创建一些新线程
-    new Thread(() => println("Thread 1 started")).start()
-    new Thread(() => println("Thread 2 started")).start()
-
-    // 列出所有线程
-    Thread.sleep(500)
-    listAllThreads()
-  }
-}
-
 class ComponentDemodulatorTest extends AnyFunSuiteLike {
-
-  case class TestConfig(gaugePoints: Int, pulseCount: Int, pulseValidPoints: Int)
 
   def testComponentDemodulator(
       carrierFreq: HertzNumber,
@@ -146,7 +124,6 @@ class ComponentDemodulatorTest extends AnyFunSuiteLike {
         peekColId = 0
         peekFloatRowId = 0
         peekFloatColId = 0
-        println(s"params done")
 
         // initialization
         dut.streamIn.valid #= false
@@ -154,12 +131,11 @@ class ComponentDemodulatorTest extends AnyFunSuiteLike {
         dut.streamOut.ready #= false
         dut.gaugePointsIn #= config.gaugePoints / 2
         dut.pulseValidPointsIn #= pulseValidPoints / 2
-        println(s"params done")
+
         // reset
         dut.clockDomain.assertReset()
         dut.clockDomain.waitActiveEdge(100)
         dut.clockDomain.deassertReset()
-        println(s"reset done")
 
         waitUntil(pokeRowId == pulseCount)
         dut.clockDomain.waitSampling(200)
@@ -178,38 +154,6 @@ class ComponentDemodulatorTest extends AnyFunSuiteLike {
     (resultAllInt16.toArray, resultAllFloat32.toArray)
   }
 
-  def writeInt16(fileName: String, data: Seq[Int]): Unit = {
-    val outputStream = new FileOutputStream(fileName)
-    try {
-      // 将数据按照 Little Endian 写入
-      data.foreach { value =>
-        val shortValue: Short = value.toShort // 转换为 Short 类型
-        val bytes = Array(
-          (shortValue & 0xff).toByte, // 取低字节
-          ((shortValue >> 8) & 0xff).toByte // 取高字节
-        )
-        outputStream.write(bytes)
-      }
-    } finally {
-      outputStream.close()
-    }
-  }
-
-  def writeFloat32(fileName: String, data: Seq[Float]): Unit = {
-    val outputStream = new FileOutputStream(fileName)
-    try {
-      // 将数据按照 Little Endian 写入
-      data.foreach { value =>
-        // 使用 ByteBuffer 将 Float 转换为 Little Endian 的字节数组
-        val buffer = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN)
-        buffer.putFloat(value)
-        outputStream.write(buffer.array()) // 写入字节
-      }
-    } finally {
-      outputStream.close()
-    }
-  }
-
   test("test fixed pattern") {
 
     val testConfigs = Seq(
@@ -226,11 +170,6 @@ class ComponentDemodulatorTest extends AnyFunSuiteLike {
 
     writeInt16("upper_result.bin", upperResult)
     writeInt16("lower_result.bin", lowerResult)
-
-//     cd
-//     cd  ~/SpinalHDL/simWorkspace/ComponentDemodulator/xsim
-//     echo -e "open_wave_database ComponentDemodulator.wdb\nopen_wave_config /home/ltr/SpinalHDL/ComponentDemodulator.wcfg" > view_wave.tcl
-//     vivado -source view_wave.tcl
 
   }
 
