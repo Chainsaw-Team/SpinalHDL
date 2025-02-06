@@ -160,9 +160,11 @@ case class ComponentDemodulator(carrierFreq: HertzNumber, debug: Boolean = false
   val pulseDelay = DataDelay(DataDelayConfig(HardType(streamStrain.fragment), PULSE_VALID_POINTS_MAX, 0))
   streamStrain >> pulseDelay.dataIn
   pulseDelay.dataIn.last.allowOverride()
-  pulseDelay.dataIn.last.clear() // TODO: set when pulseValidPoints change
+  pulseDelay.dataIn.last.clear() // must be, or last will reset DataDelay
   pulseDelay.delayIn := pulseValidPointsIn
   val streamStrainDelayed = pulseDelay.dataOut.translateFragmentWith(pulseDelay.dataOut.fragment.head)
+  streamStrainDelayed.last.allowOverride()
+  streamStrainDelayed.last := streamStrain.last // bypass signal last
 
   streamStrain.ready.allowOverride()
   streamStrainDelayed.ready.allowOverride()

@@ -26,6 +26,8 @@ case class ChainsawDaqDataPath(
 
   // clock and reset inputs
   val controlClk, controlRstn, dataClk, dataRstn = in Bool ()
+  val controlClockDomain = ClockDomain(controlClk, controlRstn, config =DAS_CLOCK_DOMAIN_CONFIG)
+  val dataClockDomain = ClockDomain(dataClk, dataRstn, config =DAS_CLOCK_DOMAIN_CONFIG, frequency = DATA_FREQUENCY)
 
   // AXI4-Lite interface controlling this module
   val controlInConfig: AxiLite4Config = AxiLite4Config(addressWidth = 32, dataWidth = 32)
@@ -39,32 +41,17 @@ case class ChainsawDaqDataPath(
   val dataOutConfig = Axi4StreamConfig(dataWidth = 8, useLast = true)
   val dataOut = master(Axi4Stream(dataOutConfig))
 
+  controlIn.setNameForEda()
+  dataIn.setNameForEda()
+  dataOut.setNameForEda()
+
   // other outputs
   val channel0Probe, channel1Probe = out SInt (16 bits) // waveform output to ILA
   val dataOverflow = out Bool () // indicator of overflow to ILA
   val pulse0, pulse1 = out Bool () // pulse output to SMA
   val hmc7044Resetn, ad9695PowerDown, jesd204Reset = out Bool () // reset output to submodules
 
-  controlIn.setNameForEda()
-  dataIn.setNameForEda()
-  dataOut.setNameForEda()
-
-  // creating clock domains
-  val controlClockDomain =
-    ClockDomain(
-      clock = controlClk,
-      reset = controlRstn,
-      config = ClockDomainConfig(resetKind = SYNC, resetActiveLevel = LOW)
-    )
-
-  val dataClockDomain = new ClockDomain(
-    clock = dataClk,
-    reset = dataRstn,
-    config = ClockDomainConfig(resetKind = SYNC, resetActiveLevel = LOW),
-    frequency = FixedFrequency(250 MHz)
-  )
-
-  // controller is mainly implemented by RegisterFile
+  // controller, mainly implemented by RegisterFile
   val controlClockingArea = new ClockingArea(controlClockDomain) {
 
     val userBaseAddr = 0x00000 // must be 0 when you use newReg rather than newRegAt
@@ -128,7 +115,7 @@ case class ChainsawDaqDataPath(
   ad9695PowerDown := controlClockingArea.ad9695Reset
   jesd204Reset := controlClockingArea.jesd204Reset
 
-  def getControlData[T <: Data](ctrl: T) = { // control clock domain -> data clock domain
+  private def getControlData[T <: Data](ctrl: T) = { // control clock domain -> data clock domain
     ctrl.addTag(crossClockDomain)
     Delay(ctrl, 3)
   }
@@ -188,8 +175,7 @@ case class ChainsawDaqDataPath(
     val streamRaw = Stream(Fragment(Vec(SInt(16 bits), 4)))
     streamRaw.valid := dataValid
     streamRaw.last := dataLast
-//    streamRaw.fragment := Vec(x0, x1, y0, y1)
-    streamRaw.fragment := Vec(x1, y1, x0, y0)
+    streamRaw.fragment := Vec(x0, x1, y0, y1)
     dataIn.ready.set() // streamRaw doesn't back pressure dataIn, theoretically, when downstream is not ready, overflow may happen
 
 //    val daqDemodulator = DasDemodulator()

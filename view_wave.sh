@@ -1,6 +1,6 @@
 #!/bin/bash
 
-module_name=ComponentDemodulator
+module_name=DasDemodulator
 
 current_dir="$(pwd)"
 

@@ -10,25 +10,21 @@ import ku060Ips._
 case class DasDemodulator() extends Module {
 
   val clk, rstn = in Bool ()
-  val gaugePointsIn = in UInt (log2Up(GAUGE_POINTS_MAX + 1) bits)
-  val pulseValidPointsIn = in UInt (log2Up(PULSE_VALID_POINTS_MAX + 1) bits)
-
-  val dataClockDomain = new ClockDomain(
-    clock = clk,
-    reset = rstn,
-    config = ClockDomainConfig(resetKind = SYNC, resetActiveLevel = LOW),
-    frequency = FixedFrequency(250 MHz)
-  )
+  val dataClockDomain = new ClockDomain(clk, rstn,config =DAS_CLOCK_DOMAIN_CONFIG, frequency = DATA_FREQUENCY)
 
   val streamIn = slave Stream Fragment(Vec(SInt(16 bits), 4)) // earlier data in lower index
   val streamOut = master Stream Fragment(Vec(SInt(16 bits), 4)) // earlier data in lower bits
-  val en = in Bool () // output demodulated phase when enabled, raw data when disabled
 
-  val Seq(x0, x1, y0, y1) = streamIn.fragment // earlier data in higher index
+  val demodulationEnabled = in Bool () // output demodulated phase when enabled, raw data when disabled
+  val gaugePointsIn = in UInt (log2Up(GAUGE_POINTS_MAX + 1) bits)
+  val pulseValidPointsIn = in UInt (log2Up(PULSE_VALID_POINTS_MAX + 1) bits)
+
+  val Seq(x0, x1, y0, y1) = streamIn.fragment
 
   new ClockingArea(dataClockDomain) {
     streamIn.ready.allowOverride()
 
+    // TODO: considering using stream arbiter
     // datapath for raw data
     val rawStream = streamIn.translateWith(fragment(Vec(x1, y1, x0, y0), streamIn.last))
 
@@ -47,7 +43,7 @@ case class DasDemodulator() extends Module {
     streamIn.ready.set() // no back pressure
 
     // output
-    when(en) {
+    when(demodulationEnabled) {
       rawStream.ready.set()
       demodulatedStream <> streamOut
     }.otherwise {
@@ -55,6 +51,11 @@ case class DasDemodulator() extends Module {
       rawStream <> streamOut
     }
 
+    // counter for debug
+    val outputCounter = Counter(PULSE_VALID_POINTS_MAX, inc=streamOut.fire)
+    when(streamOut.fire && streamOut.last)(outputCounter.clear())
+    outputCounter.value.setName("outputCounter")
+    out(outputCounter.value)
   }
 
 }

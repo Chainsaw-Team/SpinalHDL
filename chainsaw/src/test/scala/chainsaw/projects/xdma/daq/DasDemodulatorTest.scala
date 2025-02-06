@@ -1,95 +1,160 @@
 package chainsaw.projects.xdma.daq
 
-import spinal.core.assert
+import org.scalatest.funsuite.AnyFunSuiteLike
 import spinal.core.sim._
-import spinal.lib.sim.{StreamDriver, StreamMonitor, StreamReadyRandomizer}
+import spinal.core.{HertzNumber, IntToBuilder}
+import spinal.lib.sim._
 
-import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
+import scala.language.postfixOps
 
-object TestDemodulator {
+// TODO: index based -> data based
+class DasDemodulatorTest extends AnyFunSuiteLike {
 
-  def apply(
-      pulsesX: mutable.Queue[mutable.Queue[Short]],
-      pulsesY: mutable.Queue[mutable.Queue[Short]]
-  ): mutable.Seq[ArrayBuffer[Short]] = {
-    val result = ArrayBuffer[ArrayBuffer[Short]]()
+  def testDasDemodulator(
+      enableDemodulation:Boolean,
+      pulseGapPoints: Int,
+      testConfigs: Seq[TestConfig]
+  ): Array[Array[Int]] = {
+
+    // reading stimulus
+    val dataAllX = NpyReader("./chainsaw-python/das/raw_data_x.npy")
+    val dataAllY = NpyReader("./chainsaw-python/das/raw_data_y.npy")
+    val resultAllInt16 = ArrayBuffer[Array[Int]]()
+
     Config.sim.compile(DasDemodulator()).doSim { dut =>
-      dut.dataClockDomain.forkStimulus(2)
-      dut.en #= true
-      assert(pulsesX.head.length % dut.streamIn.fragment.length == 0)
-      val pulseCount = pulsesX.length
-      var pulseId = 0
+      // state variables
+      var pokeRowId, pokeColId, peekRowId, peekColId, peekFloatRowId, peekFloatColId = 0
+      var pulseCount, pulseValidPoints = 0
+      var dataX = Array[Array[Int]]()
+      var dataY = Array[Array[Int]]()
+      var resultInt16 = Array[Array[Int]]()
+      var resultFloat32 = Array[Array[Float]]()
+
+      // initializing threads
+      dut.dataClockDomain.forkStimulus(250 MHz)
       // driver thread
-      // TODO: extract methods to peek & poke frames using StreamDriver & StreamMonitor
-      fork {
-        // TODO: 增加使用固定输入作为激励的模式,允许自定义的gap,测试不同gap情况下,同步是否总能完成
-        // pulse by pulse simulation
-        var count = 10000 // extra cycles for monitor thread to collect output data
-        var gapCount = 1000 // cycles inserted between pulses
+      val threadDriver = fork {
+        var gapCountDown = pulseGapPoints / 2
         var state = "run"
 
         val driver = StreamDriver(dut.streamIn, dut.dataClockDomain) { payload =>
           state match {
-            case "run" =>
-              val v0 = pulsesX.head.dequeue()
-              val v1 = pulsesX.head.dequeue()
-              val v2 = pulsesY.head.dequeue()
-              val v3 = pulsesY.head.dequeue()
-              payload.fragment(0) #= v0
-              payload.fragment(1) #= v1
-              payload.fragment(2) #= v2
-              payload.fragment(3) #= v3
-              val last = pulsesX.head.isEmpty
+            case "run" => // poking pulse data into DUT
+              dut.pulseValidPointsIn #= dataX(pokeRowId).length / 2
+              payload.fragment(0) #= dataX(pokeRowId)(pokeColId) // x0
+              payload.fragment(1) #= dataX(pokeRowId)(pokeColId + 1) // x1
+              payload.fragment(2) #= dataY(pokeRowId)(pokeColId) // y0
+              payload.fragment(3) #= dataY(pokeRowId)(pokeColId + 1) // y1
+              pokeColId += 2
+              val last = pokeColId == pulseValidPoints
               payload.last #= last
               if (last) {
-                pulseId += 1
-                print(f"\rsimulating: ${pulseId}/$pulseCount")
-                pulsesX.dequeue()
-                pulsesY.dequeue()
-                state = "gap"
+                pokeRowId += 1
+                pokeColId = 0
+//                print(f"\rsimulating: $pokeRowId/$pulseCount")
+                state =
+                  if (gapCountDown > 0) "gap"
+                  else if (pokeRowId == pulseCount) "end"
+                  else "run"
               }
               true
-            case "gap" =>
+            case "gap" => // poking gap data(invalid) into DUT
               payload.last #= false
-              gapCount -= 1
-              if (gapCount == 0) {
-                gapCount = 1000
-                if (pulsesX.isEmpty) state = "end"
-                else state = "run"
+              gapCountDown -= 1
+              if (gapCountDown <= 0) { // state transition
+                gapCountDown = pulseGapPoints / 2
+                state = if (pokeRowId == pulseCount) "end" else "run"
               }
               false
             case "end" =>
               payload.last #= false
-              count -= 1
-              if (count == 0) {
-                println()
-                simSuccess()
-              }
+              if (pokeRowId == 0 && pokeColId == 0) state = "run"
               false
           }
         }
         driver.setFactor(1.0f) // continuous input
       }
 
-      fork { // monitor thread
+      val threadMonitorFixed = fork { // monitor thread
         StreamReadyRandomizer(dut.streamOut, dut.dataClockDomain).setFactor(1.0f) // downstream always ready
         val monitor = StreamMonitor(dut.streamOut, dut.dataClockDomain) { payload =>
-          if (result.isEmpty) result.append(ArrayBuffer[Short]())
-          val bits = payload.fragment.toBigInt.toString(2).reverse.padTo(64, '0').reverse
-          val uint16s = bits.grouped(16).toSeq.reverse.map(str => Integer.parseInt(str, 2).toShort)
-          val validUint16s = uint16s.grouped(2).map(_.head).toSeq
-          val sint16s = validUint16s.map(int => if (int > ((1 << 15) - 1)) int - (1 << 16) else int).map(_.toShort)
-          sint16s.foreach(result.last += _)
-          if (payload.last.toBoolean) result.append(ArrayBuffer[Short]())
+          // for int16 * 4
+          val elements = payload.fragment.map(_.toBigInt.toInt)
+          elements.zipWithIndex.foreach { case (int, i) => resultInt16(peekRowId)(peekColId + i) = int }
+          peekColId += elements.length
+          val last = payload.last.toBoolean
+          if (last) {
+            if (peekColId != pulseValidPoints * 2) println(s"pulse $peekRowId not finished: $peekColId / ${pulseValidPoints * 2}")
+            peekRowId += 1
+            peekColId = 0
+          }
+
         }
       }
 
-      while (true) { dut.dataClockDomain.waitSampling() }
+      def doSimOnce(config: TestConfig): Unit = {
+
+        println(s"config = $config")
+        pulseCount = config.pulseCount
+        pulseValidPoints = config.pulseValidPoints
+        // reset for stream Driver
+        dataX = dataAllX.take(pulseCount).map(_.takeRight(pulseValidPoints))
+        dataY = dataAllY.take(pulseCount).map(_.takeRight(pulseValidPoints))
+        pokeRowId = 0
+        pokeColId = 0
+        // reset for stream monitor
+        resultInt16 = Array.fill(pulseCount)(Array.fill(pulseValidPoints * 2)(0))
+        resultFloat32 = Array.fill(pulseCount)(Array.fill(pulseValidPoints)(0f))
+
+        // reset
+        dut.dataClockDomain.assertReset()
+        dut.dataClockDomain.waitActiveEdge(50)
+
+        // initialization
+        peekRowId = 0
+        peekColId = 0
+        peekFloatRowId = 0
+        peekFloatColId = 0
+
+        dut.streamIn.valid #= false
+        dut.streamIn.last #= false
+        dut.streamOut.ready #= false
+        dut.demodulationEnabled #= config.demodulationEnabled == 1
+        dut.gaugePointsIn #= config.gaugePoints / 2
+        dut.pulseValidPointsIn #= pulseValidPoints / 2
+
+        dut.dataClockDomain.waitActiveEdge(50)
+        dut.dataClockDomain.deassertReset()
+
+        waitUntil(pokeRowId == pulseCount)
+        dut.dataClockDomain.waitSampling(200)
+        println()
+        println(
+          s"peekRowId = $peekRowId, peekFloatRowId = $peekFloatRowId, peekColId = $peekColId, peekFloatColId = $peekFloatColId"
+        )
+        resultAllInt16 ++= resultInt16
+
+      }
+
+      testConfigs.foreach(doSimOnce)
+      simSuccess()
     }
-    result.init
+    resultAllInt16.toArray
   }
 
-//  current_fileset
-//  open_wave_database DasDemodulator.wdb
+  test("test fixed pattern") {
+
+    val testConfigs = Seq(
+      TestConfig(gaugePoints = 100, pulseCount = 5, pulseValidPoints = 2000, demodulationEnabled = 1),
+      TestConfig(gaugePoints = 100, pulseCount = 5, pulseValidPoints = 2000, demodulationEnabled = 0),
+      TestConfig(gaugePoints = 50, pulseCount = 5, pulseValidPoints = 1000, demodulationEnabled = 1),
+    )
+
+    val result = testDasDemodulator(enableDemodulation = true, pulseGapPoints = 500, testConfigs)
+
+    writeInt16("full_result.bin", result.flatten)
+
+  }
+
 }

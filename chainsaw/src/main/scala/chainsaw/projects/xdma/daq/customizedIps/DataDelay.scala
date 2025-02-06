@@ -49,7 +49,7 @@ case class DataDelay[T <: Data](config: DataDelayConfig[T]) extends Module {
   padding.assignFromBits(B(paddingValue, dataIn.fragment.getBitsWidth bits))
 
   // states
-  val delayInReg = RegInit(delayIn)
+  val delayInReg = Reg(HardType(delayIn)).init(delayMax + 1)
   val delayCounter = Counter(delayMax + 2)
   when(!delayCounter.willOverflowIfInc && dataIn.fire)(delayCounter.increment())
   val delayDone = delayCounter.value >= delayInReg
@@ -79,7 +79,7 @@ case class DataDelay[T <: Data](config: DataDelayConfig[T]) extends Module {
     delayInReg := delayMax + 1
     delayCounter.clear()
   }
-  // read delay a the start of a frame
+  // read delay at the start of a frame
   when(dataIn.start)(delayInReg := delayIn)
 
   assert(delayInReg >= minimumDelay) // behavior is unpredictable when delay = 0

@@ -113,7 +113,7 @@ def convert_io_to_scala(io_dict, xci_file_path=None):
         if "aclk" in signals:
             en = "aclken" if "aclken" in signals else "null"
             rst = "aresetn" if "aresetn" in signals else "null"
-            definition_code += f"\n  mapCurrentClockDomain(aclk, reset={rst}, enable={en})\n"
+            definition_code += f"\n  mapCurrentClockDomain(aclk, reset={rst}, enable={en}, resetActiveLevel = LOW)\n"
         definition_code += "}\n\n"
     return import_code + "\n" + definition_code
 
@@ -187,12 +187,12 @@ def extract_modules_and_ios(file_path):
 # 示例代码运行
 if __name__ == "__main__":
     # modify global configuration
-    # parser_config.parse_interfaces = True
-    # parser_config.target_package_name = "chainsaw.projects.xdma.daq.ku060Ips"
-    # # conversion
-    # ip_location = "/home/ltr/IdeaProjects/SpinalHDL/KU060IP"  # your Vivado IP location
-    # scala_package_path = "/home/ltr/IdeaProjects/SpinalHDL/chainsaw/src/main/scala/chainsaw/projects/xdma/daq/ku060Ips"  # your Scala Package location
-    # scan_ip_location(ip_location, scala_package_path)
+    parser_config.parse_interfaces = True
+    parser_config.target_package_name = "chainsaw.projects.xdma.daq.ku060Ips"
+    # conversion
+    ip_location = "/home/ltr/IdeaProjects/SpinalHDL/KU060IP"  # your Vivado IP location
+    scala_package_path = "/home/ltr/IdeaProjects/SpinalHDL/chainsaw/src/main/scala/chainsaw/projects/xdma/daq/ku060Ips"  # your Scala Package location
+    scan_ip_location(ip_location, scala_package_path)
 
     parser_config.target_package_name = "chainsaw.projects.xdma.daq"
     get_black_box("/home/ltr/IdeaProjects/SpinalHDL/Axku062Daq/Axku062Daq/Axku062Daq.gen/sources_1/bd/Peripheral/hdl/Peripheral_wrapper.v",

@@ -87,6 +87,9 @@ package object daq {
   val CARRIER_FREQS = Seq(80 MHz)
   val OUTPUT_STRAIN_RESOLUTION = 0.025 / 1e6 / 0.23 / (1 << 13) // 0.23rad <-> 0.025με / gauge length, output format fixed16_13
 
+  val DAS_CLOCK_DOMAIN_CONFIG = ClockDomainConfig(resetKind = SYNC, resetActiveLevel = LOW)
+  val DATA_FREQUENCY = FixedFrequency(250 MHz)
+
   println("system parameters:")
   println(s"\tinterrogation rate min = ${1.0 / (PULSE_PERIOD_POINTS_MAX * 4).toDouble * 1e9} Hz")
   println(s"\tstrain/gauge length resolution = ${OUTPUT_STRAIN_RESOLUTION * 1e12}pε/m")
