@@ -213,5 +213,5 @@ case class ComponentDemodulator(carrierFreq: HertzNumber, debug: Boolean = false
 }
 
 object ComponentDemodulator extends App {
-  Config.spinal.generateVerilog(ComponentDemodulator(80 MHz, debug = true))
+  Config.gen.generateVerilog(ComponentDemodulator(80 MHz, debug = true))
 }

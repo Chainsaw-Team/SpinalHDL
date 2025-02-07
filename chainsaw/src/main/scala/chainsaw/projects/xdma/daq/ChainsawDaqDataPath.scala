@@ -26,8 +26,8 @@ case class ChainsawDaqDataPath(
 
   // clock and reset inputs
   val controlClk, controlRstn, dataClk, dataRstn = in Bool ()
-  val controlClockDomain = ClockDomain(controlClk, controlRstn, config =DAS_CLOCK_DOMAIN_CONFIG)
-  val dataClockDomain = ClockDomain(dataClk, dataRstn, config =DAS_CLOCK_DOMAIN_CONFIG, frequency = DATA_FREQUENCY)
+  val controlClockDomain = ClockDomain(controlClk, controlRstn, config = DAS_CLOCK_DOMAIN_CONFIG)
+  val dataClockDomain = ClockDomain(dataClk, dataRstn, config = DAS_CLOCK_DOMAIN_CONFIG, frequency = DATA_FREQUENCY)
 
   // AXI4-Lite interface controlling this module
   val controlInConfig: AxiLite4Config = AxiLite4Config(addressWidth = 32, dataWidth = 32)
@@ -167,27 +167,24 @@ case class ChainsawDaqDataPath(
     // dataIn -> StreamRaw -> StreamDemodulated -> StreamWithHeader
     val channelX: Vec[SInt] = mapper(dataIn.payload.data, 0) // x0, x1, x2, x3
     val channelY: Vec[SInt] = mapper(dataIn.payload.data, 64) // y0, y1, y2, y3
-    val Seq(x0, x1,y0, y1) = Seq(channelX(0), channelX(2), channelY(0), channelY(2))
-    // channel 0 & 1 1GHz -> 500MHz
-    val rawFragment = Vec(channelX(0), channelX(2), channelY(0), channelY(2)) // x0, x1, y0, y1
+    val Seq(x0, x1, y0, y1) = Seq(channelX(0), channelX(2), channelY(0), channelY(2)) // channel 0 & 1 1GHz -> 500MHz
 
     // sample dataIn according to the pulse generation parameters
     val streamRaw = Stream(Fragment(Vec(SInt(16 bits), 4)))
     streamRaw.valid := dataValid
     streamRaw.last := dataLast
     streamRaw.fragment := Vec(x0, x1, y0, y1)
-    dataIn.ready.set() // streamRaw doesn't back pressure dataIn, theoretically, when downstream is not ready, overflow may happen
+    // streamRaw doesn't back pressure dataIn, theoretically, when downstream is not ready, overflow may happen
+    dataIn.ready.set()
 
 //    val daqDemodulator = DasDemodulator()
-//    daqDemodulator.clk := dataClk // explicit clock assignment, as ChainsawDaqDemodulator need standalone simulation
-//    daqDemodulator.rstn := dataRstn // TODO: consider using dataRstn when gauge length or pulse valid points changed
-//    daqDemodulator.en := getControlData(demodulationEnabled)
+//    daqDemodulator.demodulationEnabled := getControlData(demodulationEnabled)
 //    daqDemodulator.gaugePointsIn := getControlData(gaugePoints).resized
 //    daqDemodulator.pulseValidPointsIn := getControlData(pulseLength).resized
 //    streamRaw >> daqDemodulator.streamIn
-//    val streamDemodulated = daqDemodulator.streamOut.translateFragmentWith(daqDemodulator.streamIn.fragment.asBits)
+//    val streamDemodulated = daqDemodulator.streamOut.translateFragmentWith(daqDemodulator.streamOut.fragment.asBits)
+    val streamDemodulated = streamRaw.translateFragmentWith(Vec(x1, y1, x0, y0).asBits) // 直接连接采集结果和st2mm
 
-    val streamDemodulated = streamRaw.translateFragmentWith(streamRaw.fragment.asBits)
     // buffer between free-running & standard stream interface, should never be fully occupied
     val streamBuffered = streamDemodulated.queue(1024)
     // // header insertion after buffer as this may stall upstream

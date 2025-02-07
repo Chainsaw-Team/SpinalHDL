@@ -64,7 +64,7 @@ def test_once(test_config: TestConfig, test_type: str, data_index: int):
         shutil.rmtree(test_name)
     os.mkdir(test_name)
 
-    valid_range = range(3 * pulse_valid_points, 4 * pulse_valid_points)
+    valid_range = range(3 * pulse_valid_points, 4 * pulse_valid_points) # 避开第一个和最后一个脉冲
     match test_type:
         case "component":
             data_length = test_config.pulse_count * test_config.pulse_valid_points

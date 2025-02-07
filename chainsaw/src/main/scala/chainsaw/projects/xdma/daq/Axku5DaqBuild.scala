@@ -1,7 +1,6 @@
 package chainsaw.projects.xdma.daq
 
 import spinal.core._
-import utils.BlackBoxParser
 
 import java.io.File
 
@@ -39,13 +38,7 @@ object GenerateAxku5TopModule extends App {
 // 1. modify existing submodules / add new submodules in Scala and generate them using [[GenerateAxku5SubModules]](you may need to add extra modules)
 // 2. update / modify block design in Vivado, regenerate its wrapper HDL file
 // 3. create block design wrapper in Scala by following task:
-object BuildAxku5BlackBox extends App {
-  val bdPath = "Axku5/Axku5.gen/sources_1/bd/Axku5Peripheral/hdl/Axku5Peripheral_wrapper.v"
-  BlackBoxParser(
-    from = new File(axku5DaqRtlDir, bdPath),
-    to = new File(daqScalaSource, "Axku5Wrapper.scala")
-  )
-}
+// TODO
 // 4. connect block design wrapper with top-level I/O in DasTop.scala
 // 5. regenerate top-level module using [[GenerateAxku5TopModule]]
 // 6. synth,impl & bitgen

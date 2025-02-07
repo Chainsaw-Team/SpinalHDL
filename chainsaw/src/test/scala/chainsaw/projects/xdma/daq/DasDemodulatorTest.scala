@@ -32,13 +32,13 @@ class DasDemodulatorTest extends AnyFunSuiteLike {
       var resultFloat32 = Array[Array[Float]]()
 
       // initializing threads
-      dut.dataClockDomain.forkStimulus(250 MHz)
+      dut.clockDomain.forkStimulus(250 MHz)
       // driver thread
       val threadDriver = fork {
         var gapCountDown = pulseGapPoints / 2
         var state = "run"
 
-        val driver = StreamDriver(dut.streamIn, dut.dataClockDomain) { payload =>
+        val driver = StreamDriver(dut.streamIn, dut.clockDomain) { payload =>
           state match {
             case "run" => // poking pulse data into DUT
               dut.pulseValidPointsIn #= dataX(pokeRowId).length / 2
@@ -77,8 +77,8 @@ class DasDemodulatorTest extends AnyFunSuiteLike {
       }
 
       val threadMonitorFixed = fork { // monitor thread
-        StreamReadyRandomizer(dut.streamOut, dut.dataClockDomain).setFactor(1.0f) // downstream always ready
-        val monitor = StreamMonitor(dut.streamOut, dut.dataClockDomain) { payload =>
+        StreamReadyRandomizer(dut.streamOut, dut.clockDomain).setFactor(1.0f) // downstream always ready
+        val monitor = StreamMonitor(dut.streamOut, dut.clockDomain) { payload =>
           // for int16 * 4
           val elements = payload.fragment.map(_.toBigInt.toInt)
           elements.zipWithIndex.foreach { case (int, i) => resultInt16(peekRowId)(peekColId + i) = int }
@@ -108,8 +108,8 @@ class DasDemodulatorTest extends AnyFunSuiteLike {
         resultFloat32 = Array.fill(pulseCount)(Array.fill(pulseValidPoints)(0f))
 
         // reset
-        dut.dataClockDomain.assertReset()
-        dut.dataClockDomain.waitActiveEdge(50)
+//        dut.clockDomain.assertReset()
+//        dut.clockDomain.waitActiveEdge(50)
 
         // initialization
         peekRowId = 0
@@ -124,11 +124,11 @@ class DasDemodulatorTest extends AnyFunSuiteLike {
         dut.gaugePointsIn #= config.gaugePoints / 2
         dut.pulseValidPointsIn #= pulseValidPoints / 2
 
-        dut.dataClockDomain.waitActiveEdge(50)
-        dut.dataClockDomain.deassertReset()
+//        dut.clockDomain.waitActiveEdge(50)
+//        dut.clockDomain.deassertReset()
 
         waitUntil(pokeRowId == pulseCount)
-        dut.dataClockDomain.waitSampling(200)
+        dut.clockDomain.waitSampling(200)
         println()
         println(
           s"peekRowId = $peekRowId, peekFloatRowId = $peekFloatRowId, peekColId = $peekColId, peekFloatColId = $peekFloatColId"

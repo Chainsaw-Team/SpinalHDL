@@ -25,5 +25,5 @@ case class DraftModule() extends Module {
 }
 
 object DraftModule extends App {
-  Config.spinal.generateVerilog(DraftModule())
+  Config.gen.generateVerilog(DraftModule())
 }

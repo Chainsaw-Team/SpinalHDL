@@ -8,7 +8,7 @@ import os
 
 from Interface import *
 
-
+# TODO: write documentation for parsers
 # TODO: using dataclasses?
 class ParserConfig:
     """

@@ -6,6 +6,7 @@ import spinal.lib._
 import spinal.lib.bus.amba4.axis.Axi4Stream
 import spinal.lib.bus.amba4.axis.Axi4Stream.{Axi4Stream, Axi4StreamBundle}
 import spinal.lib.UIntPimper
+import spinal.lib.generator_backup.Handle.initImplicit
 
 import java.io.{File, FileOutputStream}
 import java.nio.{ByteBuffer, ByteOrder}
@@ -14,38 +15,29 @@ import scala.language.postfixOps
 
 package object daq {
 
+  val DAS_CLOCK_DOMAIN_CONFIG = ClockDomainConfig(resetKind = SYNC, resetActiveLevel = LOW)
+  val DATA_FREQUENCY = FixedFrequency(250 MHz)
+
   val daqScalaSource = new File("./chainsaw/src/main/scala/chainsaw/projects/xdma/daq")
   val axku062DaqRtlDir = new File("./Axku062Daq")
   val axku5DaqRtlDir = new File("./Axku5Daq")
 
-  object Config {
-    def spinal: SpinalConfig = SpinalConfig(
+  object Config { // default RTL generation &
+    def gen: SpinalConfig = SpinalConfig(
       targetDirectory = "hw/gen",
-      defaultConfigForClockDomains = ClockDomainConfig(
-        resetActiveLevel = HIGH
-      ),
+      defaultClockDomainFrequency = DATA_FREQUENCY,
+      defaultConfigForClockDomains = ClockDomainConfig(resetActiveLevel = LOW),
       onlyStdLogicVectorAtTopLevelIo = true
     )
 
     def sim: SpinalSimConfig = {
-
-      val hint =
-        """
-          |cd
-          |cd  ~/SpinalHDL/simWorkspace/$ModuleName/xsim
-          |echo -e "open_wave_database $ModuleName.wdb\nopen_wave_config /home/ltr/SpinalHDL/$ModuleName.wcfg" > view_wave.tcl
-          |vivado -source view_wave.tcl
-          |""".stripMargin
-
-      println(hint)
-
       SimConfig.withXSim.withWave // using XSim
+        .withConfig(gen)
         .withXilinxDevice("XCKU060-FFVA1156-2-i".toLowerCase())
         .withXSimSourcesPaths(
           xciSourcesPaths = ArrayBuffer(),
           bdSourcesPaths = ArrayBuffer()
         )
-
     }
   }
 
@@ -82,13 +74,12 @@ package object daq {
 
   // top-level parameters
   val GAUGE_POINTS_MAX = 250
-  val PULSE_VALID_POINTS_MAX = 125000 // 50km / 0.2m / 2
+//  val PULSE_VALID_POINTS_MAX = 125000 // 50km / 0.2m / 2
+  val PULSE_VALID_POINTS_MAX = 5000 // 50km / 0.2m / 2
   val PULSE_PERIOD_POINTS_MAX = 1 << 28
   val CARRIER_FREQS = Seq(80 MHz)
-  val OUTPUT_STRAIN_RESOLUTION = 0.025 / 1e6 / 0.23 / (1 << 13) // 0.23rad <-> 0.025με / gauge length, output format fixed16_13
-
-  val DAS_CLOCK_DOMAIN_CONFIG = ClockDomainConfig(resetKind = SYNC, resetActiveLevel = LOW)
-  val DATA_FREQUENCY = FixedFrequency(250 MHz)
+  val OUTPUT_STRAIN_RESOLUTION =
+    0.025 / 1e6 / 0.23 / (1 << 13) // 0.23rad <-> 0.025με / gauge length, output format fixed16_13
 
   println("system parameters:")
   println(s"\tinterrogation rate min = ${1.0 / (PULSE_PERIOD_POINTS_MAX * 4).toDouble * 1e9} Hz")

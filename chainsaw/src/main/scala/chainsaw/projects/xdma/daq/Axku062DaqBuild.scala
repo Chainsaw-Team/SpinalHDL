@@ -1,7 +1,6 @@
 package chainsaw.projects.xdma.daq
 
 import spinal.core._
-import utils.BlackBoxParser
 
 import java.io.File
 
@@ -60,3 +59,6 @@ object GenerateTopModule extends App {
 
 // some useful tcl commands
 // write_cfgmem  -format mcs -size 32 -interface SPIx8 -loadbit {up 0x00000000 "/home/ltr/IdeaProjects/SpinalHDL/Axku062Daq/Axku062Daq/Axku062Daq.runs/impl_1/Axku062Daq.bit" } -force -file "/home/ltr/IdeaProjects/SpinalHDL/Axku062Daq/Axku062Daq/Axku062Daq.runs/impl_1/Axku062Daq.mcs"
+
+// create_clock -name data_clk -period 4.0 -waveform {0.0 2.0} [get_nets peripheral/Peripheral_i/Datapath/dataClk]
+// create_clock -name control_clk -period 8.0 -waveform {0.0 4.0} [get_nets peripheral/Peripheral_i/Datapath/controlClk]

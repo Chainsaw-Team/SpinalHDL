@@ -34,7 +34,7 @@ case class Axku062Daq() extends Axku062 {
   fmc_hpc.DP_C2M_P.setAsDirectionLess() // disable unused output
   fmc_hpc.DP_C2M_N.setAsDirectionLess()
 
-  val peripheral = new Peripheral_wrapper()
+  val peripheral = Peripheral_wrapper()
   peripheral.sys_clk_200M := defaultClockDomain.clock
 
   // PCIe
@@ -87,7 +87,7 @@ case class Axku062Daq() extends Axku062 {
   fl1010.J2_N.last.asOutput() := False
 
   // DEBUG
-  val debugClockingArea = new ClockingArea(defaultClockDomain) {
+  val debugClockingArea = new ClockingArea(defaultClockDomain) { // TODO: need constraint
     val divider_factor = 200000 // 200MHz -> 1KHz
     val divider = CounterFreeRun(divider_factor)
     val clkSlow = RegNext(divider.value < (divider_factor / 2)) // for ILA monitoring low speed signal
@@ -108,7 +108,7 @@ case class Axku062Daq() extends Axku062 {
       new ClockDomain(clock = clk, config = clockDomainConfig, frequency = FixedFrequency(device.fMax / divider_factor))
     }
 
-    new ClockingArea(slowClockDomain) {
+    new ClockingArea(slowClockDomain) { // TODO: need constraint
       val irigB, locationRx, locationTx = Reg(Bool())
       Seq(irigB, locationRx, locationTx).foreach(_.addAttribute("mark_debug", "true"))
       irigB := RegNext(fl1010.J2_P(4).asInput())
