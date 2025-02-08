@@ -138,7 +138,9 @@ case class ComponentDemodulator(carrierFreq: HertzNumber, debug: Boolean = false
   fixed2Floats.tail.foreach(_.m_axis_result.ready := streamFloat.ready)
 
   // streamFloat -> delay ->  streamFloatDelayed
-  val gaugeDelay = DataDelay(DataDelayConfig(HardType(streamFloat.fragment), GAUGE_POINTS_MAX, 0))
+  val gaugeDelay = DataDelay(
+    DataDelayConfig(HardType(streamFloat.fragment), GAUGE_POINTS_MAX, fifoDepthMax = 8192, paddingValue = 0)
+  )
   streamFloat >> gaugeDelay.dataIn
   gaugeDelay.delayIn := gaugePointsIn
   val streamFloatDelayed = gaugeDelay.dataOut.translateFragmentWith(gaugeDelay.dataOut.fragment.head)
@@ -157,7 +159,9 @@ case class ComponentDemodulator(carrierFreq: HertzNumber, debug: Boolean = false
   // step 5: get time diffed
   //////////
   // streamStrain -> delay ->  streamStrainDelayed
-  val pulseDelay = DataDelay(DataDelayConfig(HardType(streamStrain.fragment), PULSE_VALID_POINTS_MAX, 0))
+  val pulseDelay = DataDelay(
+    DataDelayConfig(HardType(streamStrain.fragment), PULSE_VALID_POINTS_MAX, fifoDepthMax = 1024, paddingValue = 0)
+  )
   streamStrain >> pulseDelay.dataIn
   pulseDelay.dataIn.last.allowOverride()
   pulseDelay.dataIn.last.clear() // must be, or last will reset DataDelay

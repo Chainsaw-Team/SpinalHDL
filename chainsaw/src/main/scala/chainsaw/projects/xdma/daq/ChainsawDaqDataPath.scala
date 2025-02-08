@@ -177,13 +177,13 @@ case class ChainsawDaqDataPath(
     // streamRaw doesn't back pressure dataIn, theoretically, when downstream is not ready, overflow may happen
     dataIn.ready.set()
 
-//    val daqDemodulator = DasDemodulator()
-//    daqDemodulator.demodulationEnabled := getControlData(demodulationEnabled)
-//    daqDemodulator.gaugePointsIn := getControlData(gaugePoints).resized
-//    daqDemodulator.pulseValidPointsIn := getControlData(pulseLength).resized
-//    streamRaw >> daqDemodulator.streamIn
-//    val streamDemodulated = daqDemodulator.streamOut.translateFragmentWith(daqDemodulator.streamOut.fragment.asBits)
-    val streamDemodulated = streamRaw.translateFragmentWith(Vec(x1, y1, x0, y0).asBits) // 直接连接采集结果和st2mm
+    val daqDemodulator = DasDemodulator()
+    daqDemodulator.demodulationEnabled := getControlData(demodulationEnabled)
+    daqDemodulator.gaugePointsIn := getControlData(gaugePoints).resized
+    daqDemodulator.pulseValidPointsIn := getControlData(pulseLength).resized
+    streamRaw >> daqDemodulator.streamIn
+    val streamDemodulated = daqDemodulator.streamOut.translateFragmentWith(daqDemodulator.streamOut.fragment.asBits)
+//    val streamDemodulated = streamRaw.translateFragmentWith(Vec(x1, y1, x0, y0).asBits) // 直接连接采集结果和st2mm
 
     // buffer between free-running & standard stream interface, should never be fully occupied
     val streamBuffered = streamDemodulated.queue(1024)

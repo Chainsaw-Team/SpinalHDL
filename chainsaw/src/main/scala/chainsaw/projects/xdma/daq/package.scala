@@ -74,8 +74,7 @@ package object daq {
 
   // top-level parameters
   val GAUGE_POINTS_MAX = 250
-//  val PULSE_VALID_POINTS_MAX = 125000 // 50km / 0.2m / 2
-  val PULSE_VALID_POINTS_MAX = 5000 // 50km / 0.2m / 2
+  val PULSE_VALID_POINTS_MAX = 125000 // 50km / 0.2m / 2
   val PULSE_PERIOD_POINTS_MAX = 1 << 28
   val CARRIER_FREQS = Seq(80 MHz)
   val OUTPUT_STRAIN_RESOLUTION =

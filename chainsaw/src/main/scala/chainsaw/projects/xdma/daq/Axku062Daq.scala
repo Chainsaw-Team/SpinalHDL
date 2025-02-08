@@ -87,49 +87,49 @@ case class Axku062Daq() extends Axku062 {
   fl1010.J2_N.last.asOutput() := False
 
   // DEBUG
-  val debugClockingArea = new ClockingArea(defaultClockDomain) { // TODO: need constraint
-    val divider_factor = 200000 // 200MHz -> 1KHz
-    val divider = CounterFreeRun(divider_factor)
-    val clkSlow = RegNext(divider.value < (divider_factor / 2)) // for ILA monitoring low speed signal
-    fl1010.J2_P(1).asOutput() := RegNext(divider.value < (divider_factor / 2))
-    fl1010.J2_N(1).asOutput() := RegNext(divider.value >= (divider_factor / 2))
-
-    // HMC7044 output
-    fl1010.J2_P(2).asOutput() := adc_sysref
-    fl1010.J2_N(2).asOutput() := False
-    fl1010.J2_P(3).asOutput() := adc_core_clk
-    fl1010.J2_N(3).asOutput() := False
-
-    val slowClockDomain: ClockDomain = {
-      // LVDS CLK -> single ended clk
-      val clk = clkSlow
-      val clockDomainConfig: ClockDomainConfig =
-        ClockDomainConfig(clockEdge = RISING, resetKind = BOOT, resetActiveLevel = LOW)
-      new ClockDomain(clock = clk, config = clockDomainConfig, frequency = FixedFrequency(device.fMax / divider_factor))
-    }
-
-    new ClockingArea(slowClockDomain) { // TODO: need constraint
-      val irigB, locationRx, locationTx = Reg(Bool())
-      Seq(irigB, locationRx, locationTx).foreach(_.addAttribute("mark_debug", "true"))
-      irigB := RegNext(fl1010.J2_P(4).asInput())
-      locationTx := RegNext(fl1010.J2_P(5).asInput())
-      fl1010.J2_N(5).asOutput() := RegNext(locationRx)
-      locationRx.set()
-      irigB.setName("irigB")
-      locationTx.setName("locationTx")
-      locationRx.setName("locationRx")
-    }
-
-    // LEDs
-    led.assignDontCare()
-    led(0) := peripheral.pcie_link_up
-    led(1) := peripheral.ddr4_init_done
-    led(2) := ~mysoowFmc.hmc7044_gpio3
-    led(3) := ~mysoowFmc.hmc7044_gpio4
-
-    led_test.clearAll()
-
-    // SMAs
-    sma_clk_p.asOutput() := peripheral.data_clk
-  }
+//  val debugClockingArea = new ClockingArea(defaultClockDomain) { // TODO: need constraint
+//    val divider_factor = 200000 // 200MHz -> 1KHz
+//    val divider = CounterFreeRun(divider_factor)
+//    val clkSlow = RegNext(divider.value < (divider_factor / 2)) // for ILA monitoring low speed signal
+//    fl1010.J2_P(1).asOutput() := RegNext(divider.value < (divider_factor / 2))
+//    fl1010.J2_N(1).asOutput() := RegNext(divider.value >= (divider_factor / 2))
+//
+//    // HMC7044 output
+//    fl1010.J2_P(2).asOutput() := adc_sysref
+//    fl1010.J2_N(2).asOutput() := False
+//    fl1010.J2_P(3).asOutput() := adc_core_clk
+//    fl1010.J2_N(3).asOutput() := False
+//
+//    val slowClockDomain: ClockDomain = {
+//      // LVDS CLK -> single ended clk
+//      val clk = clkSlow
+//      val clockDomainConfig: ClockDomainConfig =
+//        ClockDomainConfig(clockEdge = RISING, resetKind = BOOT, resetActiveLevel = LOW)
+//      new ClockDomain(clock = clk, config = clockDomainConfig, frequency = FixedFrequency(device.fMax / divider_factor))
+//    }
+//
+//    new ClockingArea(slowClockDomain) { // TODO: need constraint
+//      val irigB, locationRx, locationTx = Reg(Bool())
+//      Seq(irigB, locationRx, locationTx).foreach(_.addAttribute("mark_debug", "true"))
+//      irigB := RegNext(fl1010.J2_P(4).asInput())
+//      locationTx := RegNext(fl1010.J2_P(5).asInput())
+//      fl1010.J2_N(5).asOutput() := RegNext(locationRx)
+//      locationRx.set()
+//      irigB.setName("irigB")
+//      locationTx.setName("locationTx")
+//      locationRx.setName("locationRx")
+//    }
+//
+//    // LEDs
+//    led.assignDontCare()
+//    led(0) := peripheral.pcie_link_up
+//    led(1) := peripheral.ddr4_init_done
+//    led(2) := ~mysoowFmc.hmc7044_gpio3
+//    led(3) := ~mysoowFmc.hmc7044_gpio4
+//
+//    led_test.clearAll()
+//
+//    // SMAs
+//    sma_clk_p.asOutput() := peripheral.data_clk
+//  }
 }

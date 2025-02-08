@@ -12,9 +12,8 @@ class DataDelayTest extends AnyFunSuiteLike {
 
   def testDataDelay(
       data: Seq[Seq[Short]],
-      delayMax: Int,
+      config: DataDelayConfig[Bits],
       delays: Seq[Int],
-      paddingValue: Int,
       pulseGapPoints: Int
   ): Array[Array[Int]] = {
     val pulseCount = data.length
@@ -22,11 +21,11 @@ class DataDelayTest extends AnyFunSuiteLike {
     val result = Array.fill(pulseCount)(Array.fill(pulseValidPoints)(0))
     var pokeRowId, pokeColId, peekRowId, peekColId = 0
 
-    val dataWidth = 8
+    import spinal.core.sim._
 
 //    Config.sim.compile(DataDelay(DataDelayConfig(HardType(Bits(8 bits)),delayMax, paddingValue))).doSim { dut =>
     SimConfig.withWave
-      .compile(DataDelay(DataDelayConfig(HardType(Bits(8 bits)), delayMax, paddingValue, lowLatency = true)))
+      .compile(DataDelay(config))
       .doSim { dut =>
         // initialization
         dut.dataIn.valid #= false
@@ -115,14 +114,27 @@ class DataDelayTest extends AnyFunSuiteLike {
     val pulseValidPoints = 100
     val delayMax = 50
     val paddingValue = 17
-    val delays = Seq(1, 3, 5, delayMax, 5, 3, 1) // require delay >= 1
+    val hardType = HardType(Bits(8 bits))
 
-    def testWithGap(pulseGapPoints: Int): Unit = {
+    val configMultiFifo: DataDelayConfig[Bits] = DataDelayConfig(
+      hardType = hardType,
+      delayMax = delayMax,
+      fifoDepthMax = 16,
+      paddingValue = paddingValue,
+      lowLatency = true
+    )
+
+    val configSingleFifo: DataDelayConfig[Bits] =
+      DataDelayConfig(hardType = hardType, delayMax = delayMax, fifoDepthMax = 64, paddingValue = paddingValue)
+
+    def doTest(config: DataDelayConfig[Bits], pulseGapPoints: Int): Unit = {
       val raw = (10 until pulseValidPoints + 10).map(_.toShort)
+      val minimumDelay = config.latency
+      val delays = Seq(minimumDelay, minimumDelay + 1, delayMax, minimumDelay + 1, minimumDelay) // require delay >= 1
       val data = Seq.fill(delays.length)(raw)
 
-      (0 until 10).foreach { _ =>
-        val result = testDataDelay(data, delayMax, delays, paddingValue, pulseGapPoints)
+      (0 until 2).foreach { _ =>
+        val result = testDataDelay(data, config, delays, pulseGapPoints)
         println(result.map(_.mkString(",")).mkString("\n"))
         result.zip(delays).foreach { case (delayed, delay) =>
           assert(
@@ -135,8 +147,10 @@ class DataDelayTest extends AnyFunSuiteLike {
       }
     }
 
-    testWithGap(0)
-    testWithGap(10)
+    doTest(configMultiFifo, 0)
+    doTest(configMultiFifo, 10)
+    doTest(configSingleFifo, 0)
+    doTest(configSingleFifo, 10)
 
   }
 }
