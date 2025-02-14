@@ -3,10 +3,8 @@ package chainsaw.projects.xdma
 import spinal.core._
 import spinal.core.sim._
 import spinal.lib._
-import spinal.lib.bus.amba4.axis.Axi4Stream
-import spinal.lib.bus.amba4.axis.Axi4Stream.{Axi4Stream, Axi4StreamBundle}
-import spinal.lib.UIntPimper
-import spinal.lib.generator_backup.Handle.initImplicit
+import spinal.lib.eda.bench.Rtl
+import spinal.lib.eda.xilinx.{IMPL, SYNTH, UltraScale, VivadoFlow2, VivadoReport, XilinxDevice}
 
 import java.io.{File, FileOutputStream}
 import java.nio.{ByteBuffer, ByteOrder}
@@ -15,14 +13,42 @@ import scala.language.postfixOps
 
 package object daq {
 
+  //////////
+  // DAS system parameters
+  //////////
   val DAS_CLOCK_DOMAIN_CONFIG = ClockDomainConfig(resetKind = SYNC, resetActiveLevel = LOW)
   val DATA_FREQUENCY = FixedFrequency(250 MHz)
+  val CONTROL_FREQUENCY = FixedFrequency(125 MHz)
+  val GAUGE_POINTS_MAX = 250 // 100m / 0.2m / 2
+  val PULSE_VALID_POINTS_MAX = 125000 // 50km / 0.2m / 2
+  val PULSE_PERIOD_POINTS_MAX = 1 << 28
+  val CARRIER_FREQS = Seq(80 MHz)
+  // 0.23rad <-> 0.025με / gauge length, output format fixed16_13
+  val OUTPUT_STRAIN_RESOLUTION = 0.025 / 1e6 / 0.23 / (1 << 13)
 
+  println("system parameters:")
+  println(s"\tinterrogation rate min = ${1.0 / (PULSE_PERIOD_POINTS_MAX * 4).toDouble * 1e9} Hz")
+  println(s"\tstrain/gauge length resolution = ${OUTPUT_STRAIN_RESOLUTION * 1e12}pε/m")
+  println(s"\tgauge length max = ${GAUGE_POINTS_MAX * 2 * 0.2}m")
+  println(s"\tfiber length max = ${PULSE_VALID_POINTS_MAX * 2 * 0.2}m")
+  println()
+
+  //////////
+  // Vivado project paths
+  //////////
   val daqScalaSource = new File("./chainsaw/src/main/scala/chainsaw/projects/xdma/daq")
   val axku062DaqRtlDir = new File("./Axku062Daq")
   val axku5DaqRtlDir = new File("./Axku5Daq")
 
+  //////////
+  // Tasks
+  //////////
   object Config { // default RTL generation &
+
+    val vivadoPath = "/tools/Xilinx/Vivado/2024.1/bin"
+    val targetDevice =
+      new XilinxDevice(family = UltraScale, part = "XCKU060-FFVA1156-2-i".toLowerCase(), fMax = 200 MHz)
+
     def gen: SpinalConfig = SpinalConfig(
       targetDirectory = "hw/gen",
       defaultClockDomainFrequency = DATA_FREQUENCY,
@@ -30,17 +56,40 @@ package object daq {
       onlyStdLogicVectorAtTopLevelIo = true
     )
 
-    def sim: SpinalSimConfig = {
+    def sim: SpinalSimConfig = { // simulation using XSim
       SimConfig.withXSim.withWave // using XSim
         .withConfig(gen)
-        .withXilinxDevice("XCKU060-FFVA1156-2-i".toLowerCase())
+        .withXilinxDevice(targetDevice.part)
         .withXSimSourcesPaths(
           xciSourcesPaths = ArrayBuffer(),
           bdSourcesPaths = ArrayBuffer()
         )
     }
+
+    def synth(top: => Module): VivadoReport = {
+      VivadoFlow2(
+        vivadoPath = vivadoPath,
+        workspacePath = "./synthWorkspace",
+        rtl = Rtl(gen.generateVerilog(top)),
+        device = targetDevice,
+        taskType = SYNTH
+      ).get
+    }
+
+    def impl(top: => Module): VivadoReport = {
+      VivadoFlow2(
+        vivadoPath = vivadoPath,
+        workspacePath = "./synthWorkspace",
+        rtl = Rtl(gen.generateVerilog(top)),
+        device = targetDevice,
+        taskType = IMPL
+      ).get
+    }
   }
 
+  //////////
+  // Stream/Flow/Fragment Utils
+  //////////
   def fragment[T <: Data](data: T, last: Bool): Fragment[T] = {
     val fragment = Fragment(HardType(data))
     fragment.fragment := data
@@ -53,8 +102,11 @@ package object daq {
       stream.translateWith(fragment(data, stream.last))
   }
 
-  import org.nd4j.linalg.factory.Nd4j
+  //////////
+  // Read/Write numpy data
+  //////////
   import org.nd4j.linalg.api.ndarray.INDArray
+  import org.nd4j.linalg.factory.Nd4j
 
   object NpyReader {
     def apply(npyPath: String): Array[Array[Int]] = {
@@ -72,23 +124,7 @@ package object daq {
     }
   }
 
-  // top-level parameters
-  val GAUGE_POINTS_MAX = 250
-  val PULSE_VALID_POINTS_MAX = 125000 // 50km / 0.2m / 2
-  val PULSE_PERIOD_POINTS_MAX = 1 << 28
-  val CARRIER_FREQS = Seq(80 MHz)
-  val OUTPUT_STRAIN_RESOLUTION =
-    0.025 / 1e6 / 0.23 / (1 << 13) // 0.23rad <-> 0.025με / gauge length, output format fixed16_13
-
-  println("system parameters:")
-  println(s"\tinterrogation rate min = ${1.0 / (PULSE_PERIOD_POINTS_MAX * 4).toDouble * 1e9} Hz")
-  println(s"\tstrain/gauge length resolution = ${OUTPUT_STRAIN_RESOLUTION * 1e12}pε/m")
-  println(s"\tgauge length max = ${GAUGE_POINTS_MAX * 2 * 0.2}m")
-  println(s"\tfiber length max = ${PULSE_VALID_POINTS_MAX * 2 * 0.2}m")
-  println()
-
-  case class TestConfig(gaugePoints: Int, pulseCount: Int, pulseValidPoints: Int, demodulationEnabled: Int = 0)
-
+  // TODO: using nd4j to create numpy matrix file directly
   def writeInt16(fileName: String, data: Seq[Int]): Unit = {
     val outputStream = new FileOutputStream(fileName)
     try {
@@ -120,5 +156,7 @@ package object daq {
       outputStream.close()
     }
   }
+
+  case class TestConfig(gaugePoints: Int, pulseCount: Int, pulseValidPoints: Int, demodulationEnabled: Int = 0)
 
 }

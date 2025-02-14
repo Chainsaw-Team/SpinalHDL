@@ -7,6 +7,8 @@ import spinal.lib.sim._
 import spinal.lib.fsm._
 import spinal.lib.bus._
 
+import scala.language.postfixOps
+
 case class DraftModule() extends Module {
 
 //  val dataIn = in Bits (32 bits)
@@ -18,12 +20,17 @@ case class DraftModule() extends Module {
 //  val dataOut = out Bits (32 bits)
 //  dataOut := dataIn.asBits
 
-  val dataIn = in Vec (Bits(8 bits), 4)
-  val dataOut = out Vec (Bits(8 bits), 4)
-  dataOut := dataIn.asBits.subdivideIn(4 slices)
+//  val dataIn = in Vec (Bits(8 bits), 4)
+//  val dataOut = out Vec (Bits(8 bits), 4)
+//  dataOut := dataIn.asBits.subdivideIn(4 slices)
+
+  val a, b = in SInt (17 bits)
+  val c = out SInt (34 bits)
+  c := RegNext(a * b)
 
 }
 
 object DraftModule extends App {
-  Config.gen.generateVerilog(DraftModule())
+//  Config.gen.generateVerilog(DraftModule())
+  Config.synth(DraftModule())
 }

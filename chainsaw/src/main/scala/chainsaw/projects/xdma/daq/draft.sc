@@ -1,3 +1,4 @@
-val a = BigInt(16)
+import java.io.File
 
-println(a.hexString)
+val a = new File("compiler.v")
+println(a.getName.split("\\.").head)

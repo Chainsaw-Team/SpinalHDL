@@ -14,10 +14,10 @@ import scala.language.postfixOps
 object VivadoFlow2 {
 
   def apply(
-      vivadoPath: String,
+      vivadoPath: String, // TODO: allow multiple format, take advantage of $VIVADO_HOME
       workspacePath: String,
       rtl: Rtl,
-      device: XilinxDevice,
+      device: XilinxDevice, // TODO: frequency & ClockDomain should be parameterized
       taskType: VivadoTaskType,
       xdcFile: Option[File] = None
   ): Option[VivadoReport] = {
@@ -42,9 +42,15 @@ object VivadoFlow2 {
     }
 
     // copy source files
+    println(s"rtl paths")
+    println(rtl.getRtlPaths().mkString("\n"))
     val sourceFiles = rtl.getRtlPaths().map { path =>
       val sourceFile = new File(path)
-      val targetFile = new File(genScriptDir, sourceFile.getName)
+      val targetFile =
+        if (sourceFile.getPath.endsWith(".xci")) { // place ip files in its own directory
+          new File(new File(genScriptDir, sourceFile.getName.split("\\.").head), sourceFile.getName)
+        } else
+          new File(genScriptDir, sourceFile.getName)
       FileUtils.copyFile(sourceFile, targetFile)
       targetFile
     }
@@ -57,11 +63,16 @@ object VivadoFlow2 {
       var script = "" // constructing script by inserting commands
 
       def getReadCommand(sourceFile: File): String = {
+        // for Windows as Vivado can't recognize backslash a path seperator
         val sourcePath = sourceFile.getAbsolutePath.replace(File.separator, "/")
         if (sourcePath.endsWith(".sv")) s"read_verilog -sv $sourcePath \n"
         else if (sourcePath.endsWith(".v")) s"read_verilog $sourcePath \n"
         else if (sourcePath.endsWith(".vhdl") || sourcePath.endsWith(".vhd")) s"read_vhdl $sourcePath \n"
-        else if (sourcePath.endsWith(".bin")) "\n"
+        else if (sourcePath.endsWith(".xci")) // read IP + generate IP output products + add output products
+          s"read_ip $sourcePath \n" +
+            s"generate_target all [get_ips ${sourceFile.getName.split("\\.").head}] \n" +
+            s"add_files -fileset sources_1 ${new File(sourceFile.getParentFile, "synth").getAbsolutePath} \n"
+        else if (sourcePath.endsWith(".bin")) "\n" // TODO: add ROM file
         else throw new IllegalArgumentException(s"invalid RTL source path $sourcePath")
       }
 
@@ -77,6 +88,7 @@ object VivadoFlow2 {
       }
 
       def addSynthTask(activateOOC: Boolean = true): Unit = {
+        script += s"update_compile_order -fileset sources_1\n"
         script += s"synth_design -part ${device.part}  -top ${rtl.getTopModuleName()} ${if (activateOOC) "-mode out_of_context"
           else ""}\t"
         script += s"\nwrite_checkpoint -force ${rtl.getTopModuleName()}_after_synth.dcp\n"
@@ -133,6 +145,7 @@ object VivadoFlow2 {
     def runScript(): Unit = {
       vivadoLogger.info(s"Running VivadoFlow...")
       // run vivado
+      println(s"running ${tclFile.getAbsolutePath} in ${genScriptDir}")
       DoCmd.doCmd(
         s"$vivadoPath/vivado -stack 2000 -nojournal -log ${logFile.getAbsolutePath
             .replace(File.separator, "/")} -mode batch -source ${tclFile.getAbsolutePath.replace(File.separator, "/")}",
