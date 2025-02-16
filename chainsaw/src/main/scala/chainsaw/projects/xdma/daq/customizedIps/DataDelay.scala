@@ -20,7 +20,7 @@ import scala.language.postfixOps
 case class DataDelayConfig[T <: Data](
     hardType: HardType[T],
     delayMax: Int,
-    fifoDepthMax: Int = 8192,
+    fifoDepthMax: Int = 1 << 17,
     paddingValue: Int = 0,
     lowLatency: Boolean = false
 ) {
@@ -29,12 +29,12 @@ case class DataDelayConfig[T <: Data](
   val fifoCount = if (fifoDepthSum / fifoDepthMax == 0) 1 else fifoDepthSum / fifoDepthMax
   val fifoDepth = if (fifoCount == 1) delayMax else fifoDepthMax
   val fifoLatency = if (lowLatency) 1 else 2
-  val routingLatency = 3
-  val latency = fifoCount * (fifoLatency + routingLatency + 1) // actual delay smaller than this will result in unpredictable behavior.
-  println(s"fifoCount = $fifoCount, fifoDepth = $fifoDepth, latency = $latency")
+  val minimumDelay = fifoCount * (fifoLatency + 1) // actual delay smaller than this will result in unpredictable behavior. FIXME: (fifoLatency + 1)?
+  println(s"fifoCount = $fifoCount, fifoDepth = $fifoDepth, minimumDelay = $minimumDelay")
 }
 
-// TODO： datapath counter -> delayDone -> Mux -> dataOut may need optimization
+// TODO： delay counter -> delayDone -> Mux -> dataOut may need optimization
+// TODO： registered output
 /** The DataDelay module introduces a configurable delay to streaming data, with support for AXI4-Stream interfaces.
   * It delays the input data by a programmable number of clock cycles, defined by the `delayIn` signal,
   * input/output data share tvalid & tlast signal.
@@ -79,7 +79,6 @@ case class DataDelay[T <: Data](config: DataDelayConfig[T]) extends Module {
   fifos.head.io.push.valid := dataIn.fire
   fifos.last.io.pop.ready := dataIn.fire && delayDone // tail is special
   fifos.init.zip(fifos.tail).foreach { case (prev, next) =>
-//    Seq.iterate(prev.io.pop, routingLatency + 1)(stream => stream.m2sPipe().throwWhen(dataIn.fire && dataIn.last)).last >> next.io.push
     prev.io.pop >> next.io.push
   }
   // select data between main path and delay path
@@ -99,7 +98,7 @@ case class DataDelay[T <: Data](config: DataDelayConfig[T]) extends Module {
   when(dataIn.start)(delayInReg := delayIn)
 
   // debug
-  assert(delayInReg >= latency)
+  assert(delayInReg >= minimumDelay)
 
 }
 

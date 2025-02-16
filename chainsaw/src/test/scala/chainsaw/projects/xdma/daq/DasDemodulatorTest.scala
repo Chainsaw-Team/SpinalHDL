@@ -153,7 +153,7 @@ class DasDemodulatorTest extends AnyFunSuiteLike {
 
     val result = testDasDemodulator(enableDemodulation = true, pulseGapPoints = 500, testConfigs)
 
-    writeInt16("full_result.bin", result.flatten)
+    CsvWriter(result.flatten, "full_result.bin")
 
   }
 

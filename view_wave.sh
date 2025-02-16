@@ -1,6 +1,6 @@
 #!/bin/bash
 
-module_name=LZOCDut
+module_name=DasDemodulator
 
 current_dir="$(pwd)"
 

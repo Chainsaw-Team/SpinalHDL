@@ -14,13 +14,12 @@ class ComponentDemodulatorTest extends AnyFunSuiteLike {
       carrierFreq: HertzNumber,
       pulseGapPoints: Int,
       testConfigs: Seq[TestConfig]
-  ): (Array[Array[Int]], Array[Array[Float]]) = {
+  ): Array[Array[Int]] = {
 
     // reading stimulus
     val dataAllX = NpyReader("./chainsaw-python/das/raw_data_x.npy")
     val dataAllY = NpyReader("./chainsaw-python/das/raw_data_y.npy")
     val resultAllInt16 = ArrayBuffer[Array[Int]]()
-    val resultAllFloat32 = ArrayBuffer[Array[Float]]()
 
     Config.sim.compile(ComponentDemodulator(carrierFreq, debug = true)).doSim { dut =>
       // state variables
@@ -29,7 +28,6 @@ class ComponentDemodulatorTest extends AnyFunSuiteLike {
       var dataX = Array[Array[Int]]()
       var dataY = Array[Array[Int]]()
       var resultInt16 = Array[Array[Int]]()
-      var resultFloat32 = Array[Array[Float]]()
 
       // initializing threads
       dut.clockDomain.forkStimulus(250 MHz)
@@ -44,8 +42,6 @@ class ComponentDemodulatorTest extends AnyFunSuiteLike {
               dut.pulseValidPointsIn #= dataX(pokeRowId).length / 2
               payload.fragment(0) #= dataX(pokeRowId)(pokeColId) // x0
               payload.fragment(1) #= dataX(pokeRowId)(pokeColId + 1) // x1
-              payload.fragment(2) #= dataY(pokeRowId)(pokeColId) // y0
-              payload.fragment(3) #= dataY(pokeRowId)(pokeColId + 1) // y1
               pokeColId += 2
               val last = pokeColId == pulseValidPoints
               payload.last #= last
@@ -92,21 +88,6 @@ class ComponentDemodulatorTest extends AnyFunSuiteLike {
         }
       }
 
-      val threadMonitorFloat = fork { // monitor thread
-        StreamReadyRandomizer(dut.streamOutFloat, dut.clockDomain).setFactor(1.0f) // downstream always ready
-        val monitor = StreamMonitor(dut.streamOutFloat, dut.clockDomain) { payload =>
-          // for float32 * 2
-          val elements = payload.fragment.map(_.toFloat)
-          elements.zipWithIndex.foreach { case (int, i) => resultFloat32(peekFloatRowId)(peekFloatColId + i) = int }
-          peekFloatColId += elements.length
-          val last = peekFloatColId == pulseValidPoints
-          if (last) {
-            peekFloatRowId += 1
-            peekFloatColId = 0
-          }
-        }
-      }
-
       def doSimOnce(config: TestConfig): Unit = {
 
         println(s"config = $config")
@@ -119,7 +100,6 @@ class ComponentDemodulatorTest extends AnyFunSuiteLike {
         pokeColId = 0
         // reset for stream monitor
         resultInt16 = Array.fill(pulseCount)(Array.fill(pulseValidPoints * 2)(0))
-        resultFloat32 = Array.fill(pulseCount)(Array.fill(pulseValidPoints)(0f))
         peekRowId = 0
         peekColId = 0
         peekFloatRowId = 0
@@ -144,14 +124,13 @@ class ComponentDemodulatorTest extends AnyFunSuiteLike {
           s"peekRowId = $peekRowId, peekFloatRowId = $peekFloatRowId, peekColId = $peekColId, peekFloatColId = $peekFloatColId"
         )
         resultAllInt16 ++= resultInt16
-        resultAllFloat32 ++= resultFloat32
 
       }
 
       testConfigs.foreach(doSimOnce)
       simSuccess()
     }
-    (resultAllInt16.toArray, resultAllFloat32.toArray)
+    resultAllInt16.toArray
   }
 
   test("test fixed pattern") {
@@ -160,17 +139,9 @@ class ComponentDemodulatorTest extends AnyFunSuiteLike {
       TestConfig(100, 5, 2000),
       TestConfig(50, 5, 1000)
     )
-    val (result, resultFloat) = testComponentDemodulator(80 MHz, 0, testConfigs)
+    val result = testComponentDemodulator(80 MHz, 0, testConfigs)
     println(s"result lengths = ${result.map(_.length).mkString(",")}")
-
-    writeFloat32("result_float32.bin", resultFloat.flatten)
-
-    val upperResult = result.flatten.grouped(4).toSeq.flatMap(_.takeRight(2))
-    val lowerResult = result.flatten.grouped(4).toSeq.flatMap(_.take(2))
-
-    writeInt16("upper_result.bin", upperResult)
-    writeInt16("lower_result.bin", lowerResult)
-
+    CsvWriter(result.flatten, "result.bin")
   }
 
 }

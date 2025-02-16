@@ -24,10 +24,13 @@ case class DraftModule() extends Module {
 //  val dataOut = out Vec (Bits(8 bits), 4)
 //  dataOut := dataIn.asBits.subdivideIn(4 slices)
 
-  val a, b = in SInt (17 bits)
-  val c = out SInt (34 bits)
-  c := RegNext(a * b)
+//  val a, b = in SInt (17 bits)
+////  val c = out SInt (34 bits)
+//  val c = out(RegNext(a * b))
 
+  val a = in SInt(17 bits)
+  val b = out SInt(17 bits)
+  b := a >> 6
 }
 
 object DraftModule extends App {

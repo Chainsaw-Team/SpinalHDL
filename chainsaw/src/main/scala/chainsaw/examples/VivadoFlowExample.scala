@@ -2,14 +2,8 @@ package chainsaw.examples
 
 import chainsaw.projects.xdma.daq.Config
 import spinal.core._
-import spinal.core.sim._
-import spinal.lib._
-import spinal.lib.sim._
-import spinal.lib.fsm._
-import spinal.lib.bus._
 import spinal.lib.eda.bench.Rtl
-import spinal.lib.eda.xilinx.{SYNTH, UltraScale, VivadoFlow, VivadoFlow2, XilinxDevice}
-import spinal.lib.eda.xilinx.boards.alinx
+import spinal.lib.eda.xilinx.{SYNTH, UltraScale, VivadoFlow2, XilinxDevice}
 
 import scala.language.postfixOps
 

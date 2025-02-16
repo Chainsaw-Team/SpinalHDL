@@ -129,7 +129,7 @@ class DataDelayTest extends AnyFunSuiteLike {
 
     def doTest(config: DataDelayConfig[Bits], pulseGapPoints: Int): Unit = {
       val raw = (10 until pulseValidPoints + 10).map(_.toShort)
-      val minimumDelay = config.latency
+      val minimumDelay = config.minimumDelay
       val delays = Seq(minimumDelay, minimumDelay + 1, delayMax, minimumDelay + 1, minimumDelay) // require delay >= 1
       val data = Seq.fill(delays.length)(raw)
 

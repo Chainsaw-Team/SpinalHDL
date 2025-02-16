@@ -1,5 +1,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.axes import Axes
+from matplotlib.ticker import FuncFormatter
+from scipy import signal
 
 
 def swap(data):
@@ -9,11 +12,12 @@ def swap(data):
     return ret
 
 
-def get_sin(pulse_count: int, pulse_valid_points, is_sin: bool, freq: float, offset: float = 0):
+def get_sin(pulse_count: int, pulse_valid_points, is_sin: bool, freq: float, offset: float = 0, data_width: int = 16):
     phases = np.arange(offset, pulse_valid_points + offset, 1) * 2 * np.pi * freq / 500e6
     wave = np.sin(phases) if is_sin else np.cos(phases)
     wave = np.tile(wave, (pulse_count, 1))
-    return (wave * (1 << 15)).astype(np.int32)
+    scaling_factor = (1 << (data_width - 1)) - 1
+    return (wave * scaling_factor).astype(np.int64)
 
 
 def get_delayed(delay_points, data: np.ndarray, frame_based=False):
@@ -98,8 +102,46 @@ fir_coeffs = np.array(
      394, 375, 357, 338, 319, 300, 281, 263, 245, 228, 211, 194, 178, 163, 149, 135, 122, 110, 99, 89, 79, 71, 63, 57,
      51, 47, 43, 40, 39, 38]).astype(np.float32)
 
+
 def plot_waterfall(data):
     plt.figure(figsize=(12, 12))
     plt.subplot(1, 1, 1)
     plt.imshow(data, aspect='auto', vmin=-1000, vmax=1000, cmap='rainbow')
     plt.savefig('waterfall.png')
+
+def plot_hist(target: Axes, buffer: np.ndarray):
+    """
+    这个方法绘图展示一个ndarray的数值分布与它数据类型的表示范围间的关系,用于观察计算过程中的溢出状况并指导RTL的位宽设计
+    """
+    sample = np.abs(np.real(buffer.flatten()))  # 需要使用numpy画图,因此将属于搬运到host
+    logbins = np.logspace(-10, 70, 80 + 1, base=2)
+    target.hist(sample, bins=logbins)
+    target.semilogx()
+    target.set_xticks(logbins[::5])
+
+    # 自定义刻度标签格式化函数
+    def log_format(x, pos):
+        return '$2^{%d}$' % np.log2(x)
+
+    # 设置自定义刻度标签
+    target.xaxis.set_major_formatter(FuncFormatter(log_format))
+    target.axvline(1 << 63, color='r', linestyle='--')
+    target.axvline(1 << (16 - 1), color='g', linestyle='--')
+    target.legend(["int64", f"SInt{16}"])
+
+def save_hist(buffers):
+
+    fig = plt.figure(figsize=(16, 9))
+    spec = plt.GridSpec(ncols=1, nrows=len(buffers), figure=fig)
+    axes = [[fig.add_subplot(spec[i, j]) for j in range(1)] for i in range(len(buffers))]
+    for i, buffer in enumerate(buffers):
+        plot_hist(axes[i][0], buffer)
+    fig.savefig("hist.png")
+
+if __name__ == '__main__':
+    data = np.random.rand(1000)
+    a = np.convolve(data, fir_coeffs, mode='same')
+    b = signal.lfilter(fir_coeffs, 1, data)
+    plt.plot(a)
+    plt.plot(b)
+    plt.savefig('conv.png')

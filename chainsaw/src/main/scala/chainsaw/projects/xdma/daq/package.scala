@@ -4,12 +4,17 @@ import spinal.core._
 import spinal.core.sim._
 import spinal.lib._
 import spinal.lib.eda.bench.Rtl
-import spinal.lib.eda.xilinx.{IMPL, SYNTH, UltraScale, VivadoFlow2, VivadoReport, XilinxDevice}
+import spinal.lib.eda.xilinx._
 
 import java.io.{File, FileOutputStream}
 import java.nio.{ByteBuffer, ByteOrder}
 import scala.collection.mutable.ArrayBuffer
 import scala.language.postfixOps
+import scala.reflect.ClassTag
+
+import java.io.PrintWriter
+import org.nd4j.linalg.api.ndarray.INDArray
+import org.nd4j.linalg.factory.Nd4j
 
 package object daq {
 
@@ -23,8 +28,27 @@ package object daq {
   val PULSE_VALID_POINTS_MAX = 125000 // 50km / 0.2m / 2
   val PULSE_PERIOD_POINTS_MAX = 1 << 28
   val CARRIER_FREQS = Seq(80 MHz)
+  val DAS_DATAPATH_WIDTH = 16
   // 0.23rad <-> 0.025με / gauge length, output format fixed16_13
   val OUTPUT_STRAIN_RESOLUTION = 0.025 / 1e6 / 0.23 / (1 << 13)
+
+  // width alongside datapath
+  val shiftedSignificandWidth = DAS_DATAPATH_WIDTH + (DAS_DATAPATH_WIDTH - 1)
+  val shiftedTargetWidth = DAS_DATAPATH_WIDTH
+  val filteredSignificandWidth = shiftedTargetWidth + (DAS_DATAPATH_WIDTH - 1)
+  val filteredTargetWidth = DAS_DATAPATH_WIDTH
+  val strainSignificandWidth = filteredTargetWidth + (DAS_DATAPATH_WIDTH - 1) + 1 - 2
+  val strainTargetWidth = DAS_DATAPATH_WIDTH
+  val strainRateSignificandWidth = strainTargetWidth + (DAS_DATAPATH_WIDTH - 1) + 1
+  val strainRateTargetWidth = strainRateSignificandWidth
+  val mergedSignificandWidth = strainRateTargetWidth + log2Up(6)
+  println(
+    s"shift right values = " +
+      s"${shiftedSignificandWidth - shiftedTargetWidth}, " +
+      s"${filteredSignificandWidth - filteredTargetWidth}, " +
+      s"${strainSignificandWidth - strainTargetWidth}, " +
+      s"${strainRateSignificandWidth - strainRateTargetWidth}"
+  )
 
   println("system parameters:")
   println(s"\tinterrogation rate min = ${1.0 / (PULSE_PERIOD_POINTS_MAX * 4).toDouble * 1e9} Hz")
@@ -102,11 +126,17 @@ package object daq {
       stream.translateWith(fragment(data, stream.last))
   }
 
+  type SIntStream = Stream[Fragment[SInt]]
+
+  implicit class SintStreamUtils(stream: SIntStream) {
+    def resize(targetWidth: Int, significandWidth: Int = -1): SIntStream = {
+      stream.translateFragmentWith(stream.fragment(significandWidth - 1 downto significandWidth - targetWidth))
+    }
+  }
+
   //////////
   // Read/Write numpy data
   //////////
-  import org.nd4j.linalg.api.ndarray.INDArray
-  import org.nd4j.linalg.factory.Nd4j
 
   object NpyReader {
     def apply(npyPath: String): Array[Array[Int]] = {
@@ -121,6 +151,28 @@ package object daq {
       val cols = shape(1)
       Array.tabulate(rows.toInt, cols.toInt) { (i, j) => data.getInt(i, j) }
 
+    }
+  }
+
+  object CsvWriter {
+    def apply[T: ClassTag](matrix: Array[Array[T]], path: String): Unit = {
+      require(matrix.nonEmpty, "Matrix cannot be empty")
+      require(matrix.forall(_.length == matrix.head.length), "All rows must have the same number of columns")
+
+      // 写入文件
+      val writer = new PrintWriter(path)
+      val content = matrix.map(_.mkString(" ")).mkString("\n")
+      writer.write(content)
+      writer.close()
+    }
+
+    def apply[T: ClassTag](matrix: Array[T], path: String): Unit = {
+
+      // 写入文件
+      val writer = new PrintWriter(path)
+      val content = matrix.mkString(" ")
+      writer.write(content)
+      writer.close()
     }
   }
 
