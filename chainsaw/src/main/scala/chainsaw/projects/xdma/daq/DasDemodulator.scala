@@ -1,5 +1,5 @@
 package chainsaw.projects.xdma.daq
-import chainsaw.projects.xdma.daq.customizedIps.Normalize32
+import chainsaw.projects.xdma.daq.customizedIps.{DataDelay, DataDelayConfig, Normalize32}
 import chainsaw.projects.xdma.daq.ku060Ips.Atan2
 import spinal.core._
 import spinal.lib.{Fragment, _}
@@ -17,9 +17,10 @@ case class DasDemodulator() extends Module {
   val demodulationEnabled = in Bool () // output demodulated phase when enabled, raw data when disabled
   val gaugePointsIn = in UInt (log2Up(GAUGE_POINTS_MAX + 1) bits)
   val pulseValidPointsIn = in UInt (log2Up(PULSE_VALID_POINTS_MAX + 1) bits)
+  val pulsePulseDelayPointsIn = in UInt (log2Up(PULSE_PULSE_DELAY_POINTS_MAX + 1) bits)
 
   def change(data: Data) = RegNext(data) =/= data
-  val changed = change(demodulationEnabled) || change(gaugePointsIn) || change(pulseValidPointsIn)
+  val changed = change(demodulationEnabled) || change(gaugePointsIn) || change(pulseValidPointsIn) || change(pulsePulseDelayPointsIn)
 
   // constructing
   val resetCountdown = Timeout(100)
@@ -46,19 +47,47 @@ case class DasDemodulator() extends Module {
     val demodulatedStream = Stream Fragment Vec(SInt(16 bits), 4) // output of this branch
 
     //////////
+    // step 1: get delayed data
+    //////////
+    val pulsePulseDelay = DataDelay(
+      DataDelayConfig(HardType(streamInGated.fragment), PULSE_PULSE_DELAY_POINTS_MAX, fifoDepthMax = 1024)
+    )
+    streamInGated >> pulsePulseDelay.dataIn
+    pulsePulseDelay.delayIn := pulsePulseDelayPointsIn
+    pulsePulseDelay.dataOut.ready.allowOverride()
+    val streamInGatedDelayed = pulsePulseDelay.dataOut.translateFragmentWith(pulsePulseDelay.dataOut.fragment.head)
+    val streamInGatedRaw = pulsePulseDelay.dataOut.translateFragmentWith(pulsePulseDelay.dataOut.fragment.last)
+
+    //////////
     // step 1: component demodulation
     //////////
-    val strainRateStreams: Seq[Stream[Fragment[Vec[SInt]]]] = CARRIER_FREQS.flatMap { freq =>
-      val demX, demY = ComponentDemodulator(freq)
-      streamInGated.ready.allowOverride()
-      streamInGated.translateFragmentWith(Vec(x0, x1)) >> demX.streamIn
-      streamInGated.translateFragmentWith(Vec(y0, y1)) >> demY.streamIn
-      Seq(demX, demY).foreach { dem =>
-        dem.gaugePointsIn := gaugePointsIn
-        dem.pulseValidPointsIn := pulseValidPointsIn
+    val strainRateStreams: Seq[Stream[Fragment[Vec[SInt]]]] =
+      Seq(streamInGatedRaw, streamInGatedDelayed).zip(Seq(PULSE_0_FREQS, PULSE_1_FREQS)).flatMap {
+        case (stream, freqs) =>
+          freqs.flatMap { freq =>
+            val demX, demY = ComponentDemodulator(freq)
+            stream.ready.allowOverride()
+            stream.translateFragmentWith(Vec(stream.fragment(0), stream.fragment(1))) >> demX.streamIn // x0, x1
+            stream.translateFragmentWith(Vec(stream.fragment(2), stream.fragment(3))) >> demY.streamIn // y0, y1
+            Seq(demX, demY).foreach { dem =>
+              dem.gaugePointsIn := gaugePointsIn
+              dem.pulseValidPointsIn := pulseValidPointsIn
+            }
+            Seq(demX.streamOut, demY.streamOut)
+          }
       }
-      Seq(demX.streamOut, demY.streamOut)
-    }
+
+//    val strainRateStreams: Seq[Stream[Fragment[Vec[SInt]]]] = PULSE_0_FREQS.flatMap { freq =>
+//      val demX, demY = ComponentDemodulator(freq)
+//      streamInGated.ready.allowOverride()
+//      streamInGated.translateFragmentWith(Vec(x0, x1)) >> demX.streamIn
+//      streamInGated.translateFragmentWith(Vec(y0, y1)) >> demY.streamIn
+//      Seq(demX, demY).foreach { dem =>
+//        dem.gaugePointsIn := gaugePointsIn
+//        dem.pulseValidPointsIn := pulseValidPointsIn
+//      }
+//      Seq(demX.streamOut, demY.streamOut)
+//    }
 
     //////////
     // step 2: merge

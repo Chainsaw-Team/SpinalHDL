@@ -11,14 +11,9 @@ import scala.collection.Seq
 import scala.language.postfixOps
 import scala.math
 
-// TODO: 在没有特殊字段的前提下,blackbox中的Axi4Stream应当被提取为Stream或Flow,而不是完整的Axi4Stream
-// TODO: optimize CORDIC parameters,包括输入输出位数,iteration数量
-// TODO: test when frameSize / gaugeLength change
+// TODO: 将module中的scaling策略同步到python工程中
 
 case class ComponentDemodulator(carrierFreq: HertzNumber, debug: Boolean = false) extends Module {
-
-  type BitStream = Stream[Fragment[Bits]]
-  type SIntStream = Stream[Fragment[SInt]]
 
   val streamIn = slave Stream Fragment(Vec(SInt(16 bits), 2)) // x0, x1
   val streamOut = master Stream Fragment(Vec(SInt(32 bits), 4)) // r0, i0, r1, i1
@@ -102,18 +97,22 @@ case class ComponentDemodulator(carrierFreq: HertzNumber, debug: Boolean = false
   val firImag, firReal = LowpassFir()
   streamVec.translateFragmentWith(imag1 ## imag0) >> firImag.s_axis_data
   streamVec.translateFragmentWith(real1 ## real0) >> firReal.s_axis_data
+
+  // downsample by 2
   val streamFiltered = firReal.m_axis_data.translateFragmentWith(
     Vec(
       firReal.m_axis_data.fragment
         .subdivideIn(32 bits)
-        .map(bits => bits(filteredSignificandWidth - 1 downto filteredSignificandWidth - filteredTargetWidth).asSInt) ++
+        .map(bits => bits(filteredSignificandWidth - 1 downto filteredSignificandWidth - filteredTargetWidth).asSInt)
+        .take(1) ++
         firImag.m_axis_data.fragment
           .subdivideIn(32 bits)
           .map(bits => bits(filteredSignificandWidth - 1 downto filteredSignificandWidth - filteredTargetWidth).asSInt)
+          .take(1)
     )
   )
   firImag.m_axis_data.ready := streamFiltered.ready
-  val Seq(filteredReal0, filteredReal1, filteredImag0, filteredImag1) = streamFiltered.fragment
+  val Seq(filteredReal0, filteredImag0) = streamFiltered.fragment
 
   //////////
   // step 4: get spatial diffed
@@ -124,14 +123,16 @@ case class ComponentDemodulator(carrierFreq: HertzNumber, debug: Boolean = false
   )
   streamFiltered >> gaugeDelay.dataIn
   gaugeDelay.delayIn := gaugePointsIn
+  gaugeDelay.dataOut.ready.allowOverride()
   val streamFilteredDelayed = gaugeDelay.dataOut.translateFragmentWith(gaugeDelay.dataOut.fragment.head)
+  val streamFilteredRaw = gaugeDelay.dataOut.translateFragmentWith(gaugeDelay.dataOut.fragment.last)
 
-  streamFiltered.ready.allowOverride()
+  streamFilteredRaw.ready.allowOverride()
   streamFilteredDelayed.ready.allowOverride()
-  val Seq(r0, r1, i0, i1) = streamFiltered.fragment.map(bits => streamFiltered.translateFragmentWith(bits)).map(_.m2sPipe())
-  val Seq(r0d, r1d, i0d, i1d) = streamFilteredDelayed.fragment.map(bits => streamFilteredDelayed.translateFragmentWith(bits)).map(_.m2sPipe())
+  val Seq(r0, i0) = streamFilteredRaw.fragment.map(bits => streamFilteredRaw.translateFragmentWith(bits))
+  val Seq(r0d, i0d) = streamFilteredDelayed.fragment.map(bits => streamFilteredDelayed.translateFragmentWith(bits))
 
-  val strain = get_diff(r0, r0d, i0, i0d) ++ get_diff(r1, r1d, i1, i1d)
+  val strain = get_diff(r0, r0d, i0, i0d)
   val streamStrain = strain.head.translateFragmentWith(
     Vec(
       strain
@@ -140,32 +141,33 @@ case class ComponentDemodulator(carrierFreq: HertzNumber, debug: Boolean = false
     )
   )
   strain.tail.foreach(_.ready := streamStrain.ready)
-//  streamStrain >> streamOut
-
-  val Seq(strainR0, strainI0, strainR1, strainI1) = streamStrain.fragment
+  val Seq(strainR0, strainI0) = streamStrain.fragment
 
   //////////
   // step 5: get time diffed
   //////////
   // streamStrain -> delay ->  streamStrainDelayed
   val pulseDelay = DataDelay(
-    DataDelayConfig(HardType(streamStrain.fragment), PULSE_VALID_POINTS_MAX, fifoDepthMax = 1024, paddingValue = 0)
-//    DataDelayConfig(HardType(streamStrain.fragment), PULSE_VALID_POINTS_MAX, fifoDepthMax = 2048, paddingValue = 0)
+    DataDelayConfig(HardType(streamStrain.fragment), PULSE_VALID_POINTS_MAX, fifoDepthMax = 1024, frameBased = false)
   )
   streamStrain >> pulseDelay.dataIn
-  pulseDelay.dataIn.last.allowOverride()
-  pulseDelay.dataIn.last.clear() // must be, or last will reset DataDelay
+//  pulseDelay.dataIn.last.allowOverride()
+//  pulseDelay.dataIn.last.clear() // must be, or last will reset DataDelay
   pulseDelay.delayIn := pulseValidPointsIn
+  pulseDelay.dataOut.ready.allowOverride()
   val streamStrainDelayed = pulseDelay.dataOut.translateFragmentWith(pulseDelay.dataOut.fragment.head)
-  streamStrainDelayed.last.allowOverride()
-  streamStrainDelayed.last := streamStrain.last // bypass signal last
+  val streamStrainRaw = pulseDelay.dataOut.translateFragmentWith(pulseDelay.dataOut.fragment.last)
+  // bypass signal last
+//  streamStrainDelayed.last.allowOverride()
+//  streamStrainDelayed.last := RegNextWhen(streamStrain.last, streamStrain.fire)
+//  streamStrainRaw.last.allowOverride()
+//  streamStrainRaw.last := RegNextWhen(streamStrain.last, streamStrain.fire)
 
-  streamStrain.ready.allowOverride()
+  streamStrainRaw.ready.allowOverride()
   streamStrainDelayed.ready.allowOverride()
-  val Seq(sr0, si0, sr1, si1) = streamStrain.fragment.map(bits => streamStrain.translateFragmentWith(bits)).map(_.m2sPipe())
-  val Seq(sr0d, si0d, sr1d, si1d) =
-    streamStrainDelayed.fragment.map(bits => streamStrainDelayed.translateFragmentWith(bits)).map(_.m2sPipe())
-  val strainRate = get_diff(sr0, sr0d, si0, si0d) ++ get_diff(sr1, sr1d, si1, si1d)
+  val Seq(sr0, si0) = streamStrainRaw.fragment.map(bits => streamStrainRaw.translateFragmentWith(bits))
+  val Seq(sr0d, si0d) = streamStrainDelayed.fragment.map(bits => streamStrainDelayed.translateFragmentWith(bits))
+  val strainRate = get_diff(sr0, sr0d, si0, si0d)
   val streamStrainRate = strainRate.head.translateFragmentWith(
     Vec(
       strainRate.map(
@@ -174,8 +176,8 @@ case class ComponentDemodulator(carrierFreq: HertzNumber, debug: Boolean = false
     )
   )
   strainRate.tail.foreach(_.ready := streamStrainRate.ready)
-  val Seq(strainRateR0, strainRateI0, strainRateR1, strainRateI1) = streamStrainRate.fragment
-  streamStrainRate >> streamOut
+  val Seq(strainRateR0, strainRateI0) = streamStrainRate.fragment
+  streamStrainRate.translateFragmentWith(Vec(strainRateR0, strainRateI0, strainRateR0, strainRateI0)) >> streamOut
 
 }
 

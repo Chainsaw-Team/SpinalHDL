@@ -12,7 +12,7 @@ import scala.language.postfixOps
 class DasDemodulatorTest extends AnyFunSuiteLike {
 
   def testDasDemodulator(
-      enableDemodulation:Boolean,
+      enableDemodulation: Boolean,
       pulseGapPoints: Int,
       testConfigs: Seq[TestConfig]
   ): Array[Array[Int]] = {
@@ -85,7 +85,8 @@ class DasDemodulatorTest extends AnyFunSuiteLike {
           peekColId += elements.length
           val last = payload.last.toBoolean
           if (last) {
-            if (peekColId != pulseValidPoints * 2) println(s"pulse $peekRowId not finished: $peekColId / ${pulseValidPoints * 2}")
+            if (peekColId != pulseValidPoints * 2)
+              println(s"pulse $peekRowId not finished: $peekColId / ${pulseValidPoints * 2}")
             peekRowId += 1
             peekColId = 0
           }
@@ -123,6 +124,7 @@ class DasDemodulatorTest extends AnyFunSuiteLike {
         dut.demodulationEnabled #= config.demodulationEnabled == 1
         dut.gaugePointsIn #= config.gaugePoints / 2
         dut.pulseValidPointsIn #= pulseValidPoints / 2
+        dut.pulsePulseDelayPointsIn #= config.pulsePulseDelayPoints / 2
 
 //        dut.clockDomain.waitActiveEdge(50)
 //        dut.clockDomain.deassertReset()
@@ -146,9 +148,27 @@ class DasDemodulatorTest extends AnyFunSuiteLike {
   test("test fixed pattern") {
 
     val testConfigs = Seq(
-      TestConfig(gaugePoints = 100, pulseCount = 5, pulseValidPoints = 2000, demodulationEnabled = 1),
-      TestConfig(gaugePoints = 100, pulseCount = 5, pulseValidPoints = 2000, demodulationEnabled = 0),
-      TestConfig(gaugePoints = 50, pulseCount = 5, pulseValidPoints = 1000, demodulationEnabled = 1),
+      TestConfig(
+        gaugePoints = 100,
+        pulseCount = 5,
+        pulseValidPoints = 2000,
+        demodulationEnabled = 1,
+        pulsePulseDelayPoints = 100
+      ),
+      TestConfig(
+        gaugePoints = 100,
+        pulseCount = 5,
+        pulseValidPoints = 2000,
+        demodulationEnabled = 0,
+        pulsePulseDelayPoints = 100
+      ),
+      TestConfig(
+        gaugePoints = 50,
+        pulseCount = 5,
+        pulseValidPoints = 1000,
+        demodulationEnabled = 1,
+        pulsePulseDelayPoints = 50
+      )
     )
 
     val result = testDasDemodulator(enableDemodulation = true, pulseGapPoints = 500, testConfigs)

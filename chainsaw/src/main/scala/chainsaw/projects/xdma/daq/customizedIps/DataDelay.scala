@@ -16,20 +16,23 @@ import scala.language.postfixOps
   * @param lowLatency   When set, latency of each FIFO = 1(otherwise 2).
   *                     This option will result in the hardware implementation using async memory, which will impact timing closure.
   *                     On FPGAs, it will also cause significant overhead in distributed memory when delayMax is large.
+  * @param frameBased   When set, signal last of a frame will flush buffers and reset states.
   */
 case class DataDelayConfig[T <: Data](
     hardType: HardType[T],
     delayMax: Int,
     fifoDepthMax: Int = 1 << 17,
     paddingValue: Int = 0,
-    lowLatency: Boolean = false
+    lowLatency: Boolean = false,
+    frameBased: Boolean = true
 ) {
   assert(isPow2(fifoDepthMax), "fifoDepthMax must be a power of 2")
   val fifoDepthSum = 1 << log2Up(delayMax)
   val fifoCount = if (fifoDepthSum / fifoDepthMax == 0) 1 else fifoDepthSum / fifoDepthMax
   val fifoDepth = if (fifoCount == 1) delayMax else fifoDepthMax
   val fifoLatency = if (lowLatency) 1 else 2
-  val minimumDelay = fifoCount * (fifoLatency + 1) // actual delay smaller than this will result in unpredictable behavior. FIXME: (fifoLatency + 1)?
+  val minimumDelay =
+    fifoCount * (fifoLatency + 1) // actual delay smaller than this will result in unpredictable behavior. FIXME: (fifoLatency + 1)?
   println(s"fifoCount = $fifoCount, fifoDepth = $fifoDepth, minimumDelay = $minimumDelay")
 }
 
@@ -56,6 +59,7 @@ case class DataDelay[T <: Data](config: DataDelayConfig[T]) extends Module {
   // I/O
   val delayIn = in UInt (log2Up(delayMax + 2) bits)
   val dataIn = slave(Stream(Fragment(hardType)))
+  val dataDelayed = Stream(Fragment(Vec(hardType, 2)))
   val dataOut = master(Stream(Fragment(Vec(hardType, 2))))
 
   val padding = hardType()
@@ -67,13 +71,14 @@ case class DataDelay[T <: Data](config: DataDelayConfig[T]) extends Module {
   when(!delayCounter.willOverflowIfInc && dataIn.fire)(delayCounter.increment())
   val delayDone = delayCounter.value >= delayInReg
 
+  val softReset = if (frameBased) dataIn.fire && dataIn.last else False
   // datapath
   // main path
-  dataOut.arbitrationFrom(dataIn)
-  dataOut.last := dataIn.last
+  dataDelayed.arbitrationFrom(dataIn)
+  dataDelayed.last := dataIn.last
   // delay path
   val fifos = Seq.fill(fifoCount)(StreamFifo(dataIn.payloadType, depth = fifoDepth, latency = fifoLatency))
-  fifos.foreach(_.io.flush := dataIn.fire && dataIn.last)
+  fifos.foreach(_.io.flush := softReset)
   fifos.head.io.push.fragment := dataIn.fragment // head is special
   fifos.head.io.push.last := dataIn.last
   fifos.head.io.push.valid := dataIn.fire
@@ -82,20 +87,22 @@ case class DataDelay[T <: Data](config: DataDelayConfig[T]) extends Module {
     prev.io.pop >> next.io.push
   }
   // select data between main path and delay path
-  dataOut.fragment.allowOverride()
-  dataOut.fragment := Mux(
+  dataDelayed.fragment.allowOverride()
+  dataDelayed.fragment := Mux(
     delayDone,
     Vec(fifos.last.io.pop.fragment, dataIn.fragment),
     Vec(padding, dataIn.fragment)
   )
 
   // initialization after each frame
-  when(dataIn.fire && dataIn.last) {
+  when(softReset) {
     delayInReg := delayMax + 1
     delayCounter.clear()
   }
   // read delay at the start of a frame
   when(dataIn.start)(delayInReg := delayIn)
+
+  dataDelayed.m2sPipe() >> dataOut
 
   // debug
   assert(delayInReg >= minimumDelay)

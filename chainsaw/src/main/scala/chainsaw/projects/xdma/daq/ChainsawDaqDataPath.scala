@@ -18,11 +18,7 @@ import scala.language.postfixOps
   *  3. control reset
   *  4.
   */
-case class ChainsawDaqDataPath(
-    defaultPulseValidPoints: Int = 2000,
-    defaultGaugePoints: Int = 50,
-    defaultDemodulationEnabled: Int = 0
-) extends Component {
+case class ChainsawDaqDataPath() extends Component {
 
   // clock and reset inputs
   val controlClk, controlRstn, dataClk, dataRstn = in Bool ()
@@ -77,29 +73,36 @@ case class ChainsawDaqDataPath(
     val rwTestReg = userBusIf.newReg("reserved RW field for testing AXI4-Lite read/write")
     val rwTest = rwTestReg.field(Bits(32 bits), RW)
 
-    // datapath control
+    // datapath(demodulation) control
     val datapathControlReg = userBusIf.newReg("control mux in datapath")
     val demodulationEnabled = datapathControlReg.field(
       Bool(),
       RW,
-      resetValue = defaultDemodulationEnabled,
+      resetValue = 0,
       "when enabled, demodulated phase, instead of X & Y raw data will be transferred to DDR"
     )
     val gaugePoints =
-      datapathControlReg.field(UInt(log2Up(GAUGE_POINTS_MAX + 1) bits), RW, defaultGaugePoints, "gauge length / 0.4m")
+      datapathControlReg.field(UInt(log2Up(GAUGE_POINTS_MAX + 1) bits), RW, 50, "gauge length / 0.4m")
+    val pulsePulseDelayRx =
+      datapathControlReg.field(
+        UInt(log2Up(PULSE_PULSE_DELAY_POINTS_MAX + 1) bits),
+        RW,
+        100,
+        "pulse0 -> pulse1 duration / 4ns， rx, used in demodulation"
+      )
 
     // pulse generation control
     val pulsePeriodReg = userBusIf.newReg("pulse period / 4ns, determined by interrogation rate rate")
     val pulseLengthReg = userBusIf.newReg("fiber length / 0.4m")
     val pulseWidthReg = userBusIf.newReg("pulse width / 4ns")
-    val pulseWidthDelayReg = userBusIf.newReg("pulse0 -> pulse1 duration / 4ns")
+    val pulsePulseDelayTxReg = userBusIf.newReg("pulse0 -> pulse1 duration / 4ns, tx, used when generating pulses")
     val preTriggerLengthReg = userBusIf.newReg("pre-trigger duration / 4ns")
     val postTriggerLengthReg = userBusIf.newReg("post-trigger duration / 4ns")
 
-    val pulsePeriod = pulsePeriodReg.field(UInt(32 bits), RW, resetValue = defaultPulseValidPoints * 2)
-    val pulseLength = pulseLengthReg.field(UInt(32 bits), RW, resetValue = defaultPulseValidPoints)
+    val pulsePeriod = pulsePeriodReg.field(UInt(32 bits), RW, resetValue = 2000 * 2)
+    val pulseLength = pulseLengthReg.field(UInt(32 bits), RW, resetValue = 2000)
     val pulseWidth = pulseWidthReg.field(UInt(32 bits), RW, 10)
-    val pulseWidthDelay = pulseWidthDelayReg.field(UInt(32 bits), RW, 10)
+    val pulsePulseDelayTx = pulsePulseDelayTxReg.field(UInt(32 bits), RW, 10)
     val preTriggerLength = preTriggerLengthReg.field(UInt(32 bits), RW) // FIXME: not used
     val postTriggerLength = postTriggerLengthReg.field(UInt(32 bits), RW, 0)
 
@@ -141,7 +144,7 @@ case class ChainsawDaqDataPath(
 
     val (pulse0Valid, _) = getDuration(U(0, 32 bits), getControlData(pulseWidth))
     val (pulse1Valid, _) =
-      getDuration(getControlData(pulseWidthDelay), getControlData(pulseWidthDelay) + getControlData(pulseWidth))
+      getDuration(getControlData(pulsePulseDelayTx), getControlData(pulsePulseDelayTx) + getControlData(pulseWidth))
     val (dataValid, dataLast) = // this duration defines which part of each period we should upload to the host
       getDuration(getControlData(postTriggerLength), getControlData(postTriggerLength) + getControlData(pulseLength))
 
@@ -179,11 +182,11 @@ case class ChainsawDaqDataPath(
 
     val daqDemodulator = DasDemodulator()
     daqDemodulator.demodulationEnabled := getControlData(demodulationEnabled)
-    daqDemodulator.gaugePointsIn := getControlData(gaugePoints).resized
+    daqDemodulator.gaugePointsIn := getControlData(gaugePoints)
     daqDemodulator.pulseValidPointsIn := getControlData(pulseLength).resized
+    daqDemodulator.pulsePulseDelayPointsIn := getControlData(pulsePulseDelayRx)
     streamRaw >> daqDemodulator.streamIn
     val streamDemodulated = daqDemodulator.streamOut.translateFragmentWith(daqDemodulator.streamOut.fragment.asBits)
-//    val streamDemodulated = streamRaw.translateFragmentWith(Vec(x1, y1, x0, y0).asBits) // 直接连接采集结果和st2mm
 
     // buffer between free-running & standard stream interface, should never be fully occupied
     val streamBuffered = streamDemodulated.queue(1024)

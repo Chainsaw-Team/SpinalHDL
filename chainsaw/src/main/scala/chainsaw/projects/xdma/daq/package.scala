@@ -27,7 +27,9 @@ package object daq {
   val GAUGE_POINTS_MAX = 250 // 100m / 0.2m / 2
   val PULSE_VALID_POINTS_MAX = 125000 // 50km / 0.2m / 2
   val PULSE_PERIOD_POINTS_MAX = 1 << 28
-  val CARRIER_FREQS = Seq(80 MHz)
+  val PULSE_PULSE_DELAY_POINTS_MAX = 250
+  val PULSE_0_FREQS = Seq(80 MHz)
+  val PULSE_1_FREQS = Seq(200 MHz)
   val DAS_DATAPATH_WIDTH = 16
   // 0.23rad <-> 0.025με / gauge length, output format fixed16_13
   val OUTPUT_STRAIN_RESOLUTION = 0.025 / 1e6 / 0.23 / (1 << 13)
@@ -55,6 +57,7 @@ package object daq {
   println(s"\tstrain/gauge length resolution = ${OUTPUT_STRAIN_RESOLUTION * 1e12}pε/m")
   println(s"\tgauge length max = ${GAUGE_POINTS_MAX * 2 * 0.2}m")
   println(s"\tfiber length max = ${PULSE_VALID_POINTS_MAX * 2 * 0.2}m")
+  println(s"\tpulse-pulse delay max = ${PULSE_PULSE_DELAY_POINTS_MAX * 2 * 0.2}ns")
   println()
 
   //////////
@@ -127,6 +130,7 @@ package object daq {
   }
 
   type SIntStream = Stream[Fragment[SInt]]
+  type SIntVecStream = Stream[Fragment[Vec[SInt]]]
 
   implicit class SintStreamUtils(stream: SIntStream) {
     def resize(targetWidth: Int, significandWidth: Int = -1): SIntStream = {
@@ -209,6 +213,12 @@ package object daq {
     }
   }
 
-  case class TestConfig(gaugePoints: Int, pulseCount: Int, pulseValidPoints: Int, demodulationEnabled: Int = 0)
+  case class TestConfig(
+      gaugePoints: Int,
+      pulseCount: Int,
+      pulseValidPoints: Int,
+      demodulationEnabled: Int = 0,
+      pulsePulseDelayPoints: Int = 100,
+  )
 
 }
