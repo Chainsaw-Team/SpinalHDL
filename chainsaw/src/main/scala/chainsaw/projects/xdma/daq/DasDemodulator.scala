@@ -20,7 +20,9 @@ case class DasDemodulator() extends Module {
   val pulsePulseDelayPointsIn = in UInt (log2Up(PULSE_PULSE_DELAY_POINTS_MAX + 1) bits)
 
   def change(data: Data) = RegNext(data) =/= data
-  val changed = change(demodulationEnabled) || change(gaugePointsIn) || change(pulseValidPointsIn) || change(pulsePulseDelayPointsIn)
+  val changed = change(demodulationEnabled) || change(gaugePointsIn) || change(pulseValidPointsIn) || change(
+    pulsePulseDelayPointsIn
+  )
 
   // constructing
   val resetCountdown = Timeout(100)
@@ -62,10 +64,10 @@ case class DasDemodulator() extends Module {
     // step 1: component demodulation
     //////////
     val strainRateStreams: Seq[Stream[Fragment[Vec[SInt]]]] =
-      Seq(streamInGatedRaw, streamInGatedDelayed).zip(Seq(PULSE_0_FREQS, PULSE_1_FREQS)).flatMap {
-        case (stream, freqs) =>
+      Seq(streamInGatedRaw, streamInGatedDelayed).zip(Seq(PULSE_0_FREQS, PULSE_1_FREQS)).zip(Seq(false, true)).flatMap {
+        case ((stream, freqs), inverse) =>
           freqs.flatMap { freq =>
-            val demX, demY = ComponentDemodulator(freq)
+            val demX, demY = ComponentDemodulator(freq, inverse)
             stream.ready.allowOverride()
             stream.translateFragmentWith(Vec(stream.fragment(0), stream.fragment(1))) >> demX.streamIn // x0, x1
             stream.translateFragmentWith(Vec(stream.fragment(2), stream.fragment(3))) >> demY.streamIn // y0, y1

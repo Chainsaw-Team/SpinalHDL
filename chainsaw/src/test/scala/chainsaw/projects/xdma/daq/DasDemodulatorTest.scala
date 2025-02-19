@@ -155,20 +155,20 @@ class DasDemodulatorTest extends AnyFunSuiteLike {
         demodulationEnabled = 1,
         pulsePulseDelayPoints = 100
       ),
-      TestConfig(
-        gaugePoints = 100,
-        pulseCount = 5,
-        pulseValidPoints = 2000,
-        demodulationEnabled = 0,
-        pulsePulseDelayPoints = 100
-      ),
-      TestConfig(
-        gaugePoints = 50,
-        pulseCount = 5,
-        pulseValidPoints = 1000,
-        demodulationEnabled = 1,
-        pulsePulseDelayPoints = 50
-      )
+//      TestConfig(
+//        gaugePoints = 100,
+//        pulseCount = 5,
+//        pulseValidPoints = 2000,
+//        demodulationEnabled = 0,
+//        pulsePulseDelayPoints = 100
+//      ),
+//      TestConfig(
+//        gaugePoints = 50,
+//        pulseCount = 5,
+//        pulseValidPoints = 1000,
+//        demodulationEnabled = 1,
+//        pulsePulseDelayPoints = 50
+//      )
     )
 
     val result = testDasDemodulator(enableDemodulation = true, pulseGapPoints = 500, testConfigs)

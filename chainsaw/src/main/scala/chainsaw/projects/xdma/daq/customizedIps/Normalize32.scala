@@ -12,11 +12,6 @@ import scala.collection.mutable.ArrayBuffer
 import scala.language.postfixOps
 import scala.util.Random
 
-object Shifter {
-
-  // TODO: implement leading bits counter, shifter, normalizer and vector normalizer
-
-}
 
 case class Lzoc32() extends BlackBox {
 

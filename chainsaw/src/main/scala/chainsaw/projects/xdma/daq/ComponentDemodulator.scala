@@ -13,7 +13,7 @@ import scala.math
 
 // TODO: 将module中的scaling策略同步到python工程中
 
-case class ComponentDemodulator(carrierFreq: HertzNumber, debug: Boolean = false) extends Module {
+case class ComponentDemodulator(carrierFreq: HertzNumber, inverse: Boolean = false) extends Module {
 
   val streamIn = slave Stream Fragment(Vec(SInt(16 bits), 2)) // x0, x1
   val streamOut = master Stream Fragment(Vec(SInt(32 bits), 4)) // r0, i0, r1, i1
@@ -59,14 +59,16 @@ case class ComponentDemodulator(carrierFreq: HertzNumber, debug: Boolean = false
   val dds0, dds1 = DdsCompiler()
   streamForCarrier.translateFragmentWith(getPhaseData(resync, phaseInc, phaseOffsets(0))) >> dds0.s_axis_phase
   streamForCarrier.translateFragmentWith(getPhaseData(resync, phaseInc, phaseOffsets(1))) >> dds1.s_axis_phase
-  val streamCarrier = dds0.m_axis_data.translateFragmentWith(
-    Vec(
-      dds0.m_axis_data.fragment(2 * DDS_OUTPUT_WIDTH - 1 downto DDS_OUTPUT_WIDTH).asSInt, // sin0
-      dds0.m_axis_data.fragment(DDS_OUTPUT_WIDTH - 1 downto 0).asSInt, // cos0
-      dds1.m_axis_data.fragment(2 * DDS_OUTPUT_WIDTH - 1 downto DDS_OUTPUT_WIDTH).asSInt, // sin1
-      dds1.m_axis_data.fragment(DDS_OUTPUT_WIDTH - 1 downto 0).asSInt // cos1
-    )
+  val Seq(sin0Pre, cos0Pre, sin1Pre, cos1Pre) = Seq(
+    dds0.m_axis_data.fragment(2 * DDS_OUTPUT_WIDTH - 1 downto DDS_OUTPUT_WIDTH).asSInt, // sin0
+    dds0.m_axis_data.fragment(DDS_OUTPUT_WIDTH - 1 downto 0).asSInt, // cos0
+    dds1.m_axis_data.fragment(2 * DDS_OUTPUT_WIDTH - 1 downto DDS_OUTPUT_WIDTH).asSInt, // sin1
+    dds1.m_axis_data.fragment(DDS_OUTPUT_WIDTH - 1 downto 0).asSInt // cos1
   )
+  val streamCarrier = dds0.m_axis_data.translateFragmentWith(
+    Vec(if (inverse) -sin0Pre else sin0Pre, cos0Pre, if (inverse) -sin1Pre else sin1Pre, cos1Pre)
+  )
+
   dds1.m_axis_data.ready := streamCarrier.ready
   val streamRawBuffered = streamRawData.queue(16) // queue
   val streamRawAndCarrier = StreamJoin(streamRawBuffered, streamCarrier) // join
@@ -182,6 +184,5 @@ case class ComponentDemodulator(carrierFreq: HertzNumber, debug: Boolean = false
 }
 
 object ComponentDemodulator extends App {
-  Config.gen.generateVerilog(ComponentDemodulator(80 MHz, debug = true))
-//  Config.synth(ComponentDemodulator(80 MHz, debug = true))
+  Config.gen.generateVerilog(ComponentDemodulator(80 MHz))
 }

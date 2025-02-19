@@ -2,7 +2,7 @@ package chainsaw.projects.xdma.daq
 
 import org.scalatest.funsuite.AnyFunSuiteLike
 import spinal.core.sim._
-import spinal.core.{HertzNumber, IntToBuilder}
+import spinal.core.{HertzNumber, IntToBuilder, True}
 import spinal.lib.sim._
 
 import scala.collection.mutable.ArrayBuffer
@@ -12,6 +12,7 @@ class ComponentDemodulatorTest extends AnyFunSuiteLike {
 
   def testComponentDemodulator(
       carrierFreq: HertzNumber,
+      inverse:Boolean,
       pulseGapPoints: Int,
       testConfigs: Seq[TestConfig]
   ): Array[Array[Int]] = {
@@ -21,7 +22,7 @@ class ComponentDemodulatorTest extends AnyFunSuiteLike {
     val dataAllY = NpyReader("./chainsaw-python/das/raw_data_y.npy")
     val resultAllInt16 = ArrayBuffer[Array[Int]]()
 
-    Config.sim.compile(ComponentDemodulator(carrierFreq, debug = true)).doSim { dut =>
+    Config.sim.compile(ComponentDemodulator(carrierFreq, inverse)).doSim { dut =>
       // state variables
       var pokeRowId, pokeColId, peekRowId, peekColId, peekFloatRowId, peekFloatColId = 0
       var pulseCount, pulseValidPoints = 0
@@ -139,7 +140,7 @@ class ComponentDemodulatorTest extends AnyFunSuiteLike {
       TestConfig(100, 5, 2000),
       TestConfig(50, 5, 1000)
     )
-    val result = testComponentDemodulator(80 MHz, 0, testConfigs)
+    val result = testComponentDemodulator(80 MHz, inverse = true, 0, testConfigs)
     println(s"result lengths = ${result.map(_.length).mkString(",")}")
     CsvWriter(result.flatten, "result.bin")
   }

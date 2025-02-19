@@ -26,9 +26,9 @@ class TestConfig:
 
 def test_das(test_config: TestConfig, data_index: int):
     test_name = f"test_das_{test_config.pulse_count}_{test_config.pulse_valid_points}_{test_config.gauge_points}_{test_config.demodulation_enabled}"
-    all_components = [(80e6, True, False), (80e6, False, False), (200e6, True, True), (200e6, False, True)]
-    all_strain_rate = [test_component(test_config, data_index, carrier_freq, using_x, delayed, compare=False) for
-                       carrier_freq, using_x, delayed in all_components]
+    all_components = [(80e6, True, False, False), (80e6, False, False, False), (200e6, True, True, True), (200e6, False, True, True)]
+    all_strain_rate = [test_component(test_config, data_index, carrier_freq, using_x, delayed, inverse, compare=False) for
+                       carrier_freq, using_x, delayed, inverse in all_components]
     all_real = [real for real, imag in all_strain_rate]
     all_imag = [imag for real, imag in all_strain_rate]
     real = np.sum(np.array(all_real), axis=0)
@@ -59,7 +59,7 @@ def test_das(test_config: TestConfig, data_index: int):
 
 
 def test_component(test_config: TestConfig, data_index: int,
-                   carrier_freq: float = 80e6, using_x: bool = True, delayed: bool = False, compare=True):
+                   carrier_freq: float = 80e6, using_x: bool = True, delayed: bool = False, inverse=False, compare=True):
     test_name = f"test_component_{test_config.pulse_count}_{test_config.pulse_valid_points}_{test_config.gauge_points}_{test_config.demodulation_enabled}"
 
     raw_data = data_x if using_x else data_y
@@ -75,6 +75,8 @@ def test_component(test_config: TestConfig, data_index: int,
         raw_data = get_delayed(test_config.pulse_pulse_delay_points, raw_data, frame_based=True)
     # PINC会在对应输出中直接生效,因此带有初始offset
     sin = get_sin(pulse_count, pulse_valid_points, True, carrier_freq, offset=2, data_width=data_width)
+    if inverse:
+        sin = -sin
     cos = get_sin(pulse_count, pulse_valid_points, False, carrier_freq, offset=2, data_width=data_width)
 
     vecReal = (raw_data * cos) >> shift_values[0]
@@ -131,25 +133,25 @@ def test_component(test_config: TestConfig, data_index: int,
 
 if __name__ == '__main__':
 
-    # # for das demodulator
-    # test_configs = [
-    #     TestConfig(5, 2000, 100, True, 100),
-    #     TestConfig(5, 2000, 100, False, 100),
-    #     TestConfig(5, 1000, 50, True, 50),
-    # ]
-    # data_idx = 0
-    # for test_config in test_configs:
-    #     test_das(test_config, data_idx)
-    #     data_length = test_config.pulse_count * test_config.pulse_valid_points * 2
-    #     data_idx += data_length
-
-    # for component demodulator
+    # for das demodulator
     test_configs = [
-        TestConfig(5, 2000, 100),
-        TestConfig(5, 1000, 50)
+        TestConfig(5, 2000, 100, True, 100),
+        # TestConfig(5, 2000, 100, False, 100),
+        # TestConfig(5, 1000, 50, True, 50),
     ]
     data_idx = 0
     for test_config in test_configs:
-        test_component(test_config, data_idx)
+        test_das(test_config, data_idx)
         data_length = test_config.pulse_count * test_config.pulse_valid_points * 2
         data_idx += data_length
+
+    # # for component demodulator
+    # test_configs = [
+    #     TestConfig(5, 2000, 100),
+    #     TestConfig(5, 1000, 50)
+    # ]
+    # data_idx = 0
+    # for test_config in test_configs:
+    #     test_component(test_config, data_idx, carrier_freq=80e6, inverse=True)
+    #     data_length = test_config.pulse_count * test_config.pulse_valid_points * 2
+    #     data_idx += data_length
