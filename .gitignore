@@ -86,3 +86,4 @@ sim/simulation_plugins/*
 # for Vivado projects, do version control for .tcl files only
 /chainsaw/src/main/resources/VivadoProjects
 
+/chainsaw/project/build.properties
