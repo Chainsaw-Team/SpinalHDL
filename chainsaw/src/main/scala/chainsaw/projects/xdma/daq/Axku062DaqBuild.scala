@@ -5,7 +5,7 @@ import spinal.core._
 import java.io.File
 
 //////////
-// you can rebuild Axku062Daq Vivado project by following steps:
+// you can recreate and build Axku062Daq Vivado project from scratch by following steps:
 //////////
 
 // 1: generate submodules & top-level module
@@ -54,8 +54,10 @@ object GenerateTopModule extends App {
 // write_project_tcl -force ../<project_name.tcl>
 
 //////////
-// before you commit a
+// before you commit, make sure that
 //////////
+
+// 1. all .xci files used in your project has been
 
 // some useful tcl commands
 // write_cfgmem  -format mcs -size 32 -interface SPIx8 -loadbit {up 0x00000000 "/home/ltr/IdeaProjects/SpinalHDL/Axku062Daq/Axku062Daq/Axku062Daq.runs/impl_1/Axku062Daq.bit" } -force -file "/home/ltr/IdeaProjects/SpinalHDL/Axku062Daq/Axku062Daq/Axku062Daq.runs/impl_1/Axku062Daq.mcs"

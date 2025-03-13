@@ -14,14 +14,6 @@ import spinal.lib.eda.xilinx.boards.alinx.{Axku062, Fl1010}
 // save project
 // write_project_tcl -force ../<project name>.tcl
 
-// # binding clock domains
-// set_property CONFIG.CLK_DOMAIN Peripheral_PCIe_0_axi_aclk [get_bd_intf_pins /Datapath/controlIn]
-// set_property CONFIG.FREQ_HZ 125000000 [get_bd_intf_pins /Datapath/controlIn]
-// set_property CONFIG.CLK_DOMAIN Peripheral_jesd204_buffer_0_IBUF_DS_ODIV2 [get_bd_intf_pins /Datapath/dataIn]
-// set_property CONFIG.FREQ_HZ 250000000 [get_bd_intf_pins /Datapath/dataIn]
-// set_property CONFIG.CLK_DOMAIN Peripheral_jesd204_buffer_0_IBUF_DS_ODIV2 [get_bd_intf_pins /Datapath/dataOut]
-// set_property CONFIG.FREQ_HZ 250000000 [get_bd_intf_pins /Datapath/dataOut]
-
 import scala.language.postfixOps
 
 case class Axku062Daq() extends Axku062 {

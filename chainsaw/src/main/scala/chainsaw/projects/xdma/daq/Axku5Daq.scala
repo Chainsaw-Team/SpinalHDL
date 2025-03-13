@@ -5,15 +5,6 @@ import spinal.lib._
 import spinal.lib.blackbox.xilinx.ultrascale.{IBUFDS, OBUFDS}
 import spinal.lib.eda.xilinx.boards.alinx.Axku5
 
-//set_property CONFIG.CLK_DOMAIN Axku5Peripheral_PCIe_0_axi_aclk [get_bd_intf_pins /ChainsawDaqDataPath_0/controlIn]
-//set_property CONFIG.FREQ_HZ 125000000 [get_bd_intf_pins /ChainsawDaqDataPath_0/controlIn]
-//set_property CONFIG.CLK_DOMAIN Axku5Peripheral_jesd204_buffer_0_IBUF_DS_ODIV2 [get_bd_intf_pins /ChainsawDaqDataPath_0/dataIn]
-//set_property CONFIG.FREQ_HZ 250000000 [get_bd_intf_pins /ChainsawDaqDataPath_0/dataIn]
-//set_property CONFIG.CLK_DOMAIN Axku5Peripheral_jesd204_buffer_0_IBUF_DS_ODIV2 [get_bd_intf_pins /ChainsawDaqDataPath_0/dataOut]
-//set_property CONFIG.FREQ_HZ 250000000 [get_bd_intf_pins /ChainsawDaqDataPath_0/dataOut]
-
-
-//
 // write_cfgmem  -format bin -size 64 -interface SPIx8 -loadbit {up 0x00000000 "C:/Users/lsfan/Desktop/Axku062Daq/Axku062Daq.runs/impl_1/Axku062Daq.bit" } -force
 
 case class Axku5Daq() extends Axku5 {
@@ -82,8 +73,8 @@ case class Axku5Daq() extends Axku5 {
   user_40pin.IO_P(16).asOutput() := peripheral.pulse_gen_1
   user_40pin.IO_N(16).asOutput() := False
 
-  ////////DEBUG////////
-  val debugClockingArea = new ClockingArea(defaultClockDomain){
+  //////// DEBUG////////
+  val debugClockingArea = new ClockingArea(defaultClockDomain) {
     val divider_factor = 10
     val divider = CounterFreeRun(divider_factor)
     user_40pin.IO_P(0).asOutput() := RegNext(divider.value >= (divider_factor / 2))
@@ -104,6 +95,4 @@ case class Axku5Daq() extends Axku5 {
     led(1) := peripheral.ddr4_init_done
   }
 
-
 }
-
