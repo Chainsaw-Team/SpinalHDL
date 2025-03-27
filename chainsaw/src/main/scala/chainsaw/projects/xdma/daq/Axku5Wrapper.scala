@@ -1,15 +1,11 @@
 package chainsaw.projects.xdma.daq
+
 import spinal.core._
 import spinal.lib._
-import spinal.lib.bus.amba4.axi._
-import spinal.lib.bus.amba4.axis._
-import spinal.lib.bus.amba4.axilite._
+        
 import spinal.lib.com.ddr.Ddr4Interface
 
-import scala.language.postfixOps
-
-class Axku5Peripheral_wrapper extends BlackBox {
-
+case class Axku5Peripheral_wrapper() extends BlackBox {
   val ddr4_rtl = Ddr4Interface(17, 4)
   val ad9695PowerDown = out Bool()
   val ad9695_sclk = out Bool()
@@ -42,6 +38,5 @@ class Axku5Peripheral_wrapper extends BlackBox {
   val pcie_rstn = in Bool()
   val pulse_gen_0 = out Bool()
   val pulse_gen_1 = out Bool()
-
-  addRTLPath(raw"C:\Users\lsfan\Documents\GitHub\SpinalHDL\.\Axku5Daq\Axku5Daq\Axku5Daq.gen\sources_1\bd\Axku5Peripheral\hdl\Axku5Peripheral_wrapper.v")
 }
+

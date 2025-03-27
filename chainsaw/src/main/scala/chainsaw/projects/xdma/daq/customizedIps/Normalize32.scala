@@ -25,6 +25,8 @@ case class Lzoc32() extends BlackBox {
 
 }
 
+// TODO: generalize normalizer
+
 case class Normalize32() extends Module {
 
   val dataIn = slave(Stream(Fragment(Vec(SInt(32 bits), 2))))

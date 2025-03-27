@@ -12,6 +12,7 @@ import scala.language.postfixOps
   * @param delayMax     The maximum programmable delay in clock cycles.
   * @param fifoDepthMax The maximum depth of a single FIFO, when delayMax > fifoDepthMax, DataDelay will be implemented by multiple cascaded FIFOs.
   *                     Smaller fifoDepthMax will result in to higher latency but easier timing closure.
+  *                     caution: when URAM is available, fifoDepthMax < 4096 may prevent synthesizer from synthesizing URAMs, 4096 is recommended
   * @param paddingValue The value output during the delay period before valid data is ready.
   * @param lowLatency   When set, latency of each FIFO = 1(otherwise 2).
   *                     This option will result in the hardware implementation using async memory, which will impact timing closure.
@@ -36,8 +37,10 @@ case class DataDelayConfig[T <: Data](
   println(s"fifoCount = $fifoCount, fifoDepth = $fifoDepth, minimumDelay = $minimumDelay")
 }
 
+// TODO: timing diagram for this IP
 // TODO： delay counter -> delayDone -> Mux -> dataOut may need optimization
 // TODO： registered output
+// TODO: using Vivado built-in FIFO instead of StreamFIFO
 /** The DataDelay module introduces a configurable delay to streaming data, with support for AXI4-Stream interfaces.
   * It delays the input data by a programmable number of clock cycles, defined by the `delayIn` signal,
   * input/output data share tvalid & tlast signal.

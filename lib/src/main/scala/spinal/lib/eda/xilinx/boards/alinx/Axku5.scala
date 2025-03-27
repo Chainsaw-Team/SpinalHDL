@@ -49,4 +49,7 @@ abstract class Axku5 extends Component with XilinxBoard {
     new ClockDomain(clock = clk, config = clockDomainConfig, frequency = FixedFrequency(200 MHz))
   }
 
+  val ddr4PartNameInVivado = "MT40A512M16HA-075E"
+  val flashPartNameInVivado = "mt25qu256-spi-x1_x2_x4_x8"
+
 }

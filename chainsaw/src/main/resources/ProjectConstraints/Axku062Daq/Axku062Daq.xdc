@@ -2,3 +2,18 @@ create_clock -name data_clk -period 4.0 -waveform {0.0 2.0} [get_nets peripheral
 # create_generated_clock -name data_clk [get_nets peripheral/Peripheral_i/jesd204_bufg_gt/BUFG_GT_O[0]]
 # create_clock -name control_clk -period 8.0 -waveform {0.0 4.0} [get_nets peripheral/Peripheral_i/Datapath/controlClk]
 
+# FMC user data pins are set as single-ended by default, when used as differential pairs, set them in project-specific constraints
+set_property IOSTANDARD LVCMOS18 [get_ports fmc_hpc_LA_N_4]
+set_property IOSTANDARD LVCMOS18 [get_ports fmc_hpc_LA_N_5]
+set_property IOSTANDARD LVCMOS18 [get_ports fmc_hpc_LA_N_7]
+set_property IOSTANDARD LVCMOS18 [get_ports fmc_hpc_LA_N_9]
+set_property IOSTANDARD LVCMOS18 [get_ports fmc_hpc_LA_P_11]
+set_property IOSTANDARD LVCMOS18 [get_ports fmc_hpc_LA_P_12]
+set_property IOSTANDARD LVCMOS18 [get_ports fmc_hpc_LA_P_4]
+set_property IOSTANDARD LVCMOS18 [get_ports fmc_hpc_LA_P_5]
+set_property IOSTANDARD LVCMOS18 [get_ports fmc_hpc_LA_P_7]
+set_property IOSTANDARD LVCMOS18 [get_ports fmc_hpc_LA_P_9]
+set_property IOSTANDARD LVCMOS18 [get_ports fmc_hpc_HA_*]
+set_property IOSTANDARD LVCMOS18 [get_ports fmc_lpc_1_LA_*]
+set_property IOSTANDARD LVCMOS33 [get_ports fmc_lpc_2_LA_*]
+set_property IOSTANDARD LVCMOS33 [get_ports fmc_lpc_2_CLK_*]

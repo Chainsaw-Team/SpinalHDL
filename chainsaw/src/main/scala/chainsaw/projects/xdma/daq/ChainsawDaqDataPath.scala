@@ -18,7 +18,7 @@ import scala.language.postfixOps
   *  3. control reset
   *  4.
   */
-case class ChainsawDaqDataPath() extends Component {
+case class ChainsawDaqDataPath(includeDemodulation: Boolean = true) extends Component {
 
   // clock and reset inputs
   val controlClk, controlRstn, dataClk, dataRstn = in Bool ()
@@ -180,13 +180,15 @@ case class ChainsawDaqDataPath() extends Component {
     // streamRaw doesn't back pressure dataIn, theoretically, when downstream is not ready, overflow may happen
     dataIn.ready.set()
 
-    val daqDemodulator = DasDemodulator()
-    daqDemodulator.demodulationEnabled := getControlData(demodulationEnabled)
-    daqDemodulator.gaugePointsIn := getControlData(gaugePoints)
-    daqDemodulator.pulseValidPointsIn := getControlData(pulseLength).resized
-    daqDemodulator.pulsePulseDelayPointsIn := getControlData(pulsePulseDelayRx)
-    streamRaw >> daqDemodulator.streamIn
-    val streamDemodulated = daqDemodulator.streamOut.translateFragmentWith(daqDemodulator.streamOut.fragment.asBits)
+    val streamDemodulated = if (includeDemodulation) {
+      val daqDemodulator = DasDemodulator()
+      daqDemodulator.demodulationEnabled := getControlData(demodulationEnabled)
+      daqDemodulator.gaugePointsIn := getControlData(gaugePoints)
+      daqDemodulator.pulseValidPointsIn := getControlData(pulseLength).resized
+      daqDemodulator.pulsePulseDelayPointsIn := getControlData(pulsePulseDelayRx)
+      streamRaw >> daqDemodulator.streamIn
+      daqDemodulator.streamOut.translateFragmentWith(daqDemodulator.streamOut.fragment.asBits)
+    } else streamRaw.translateFragmentWith(streamRaw.fragment.asBits)
 
     // buffer between free-running & standard stream interface, should never be fully occupied
     val streamBuffered = streamDemodulated.queue(1024)

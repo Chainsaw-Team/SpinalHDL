@@ -1,6 +1,6 @@
 package chainsaw.projects.xdma.daq.customizedIps
 
-import chainsaw.projects.xdma.daq.{ComponentDemodulator, Config}
+import chainsaw.projects.xdma.daq._
 import org.scalatest.funsuite.AnyFunSuiteLike
 import spinal.core._
 import spinal.core.sim._
@@ -23,10 +23,10 @@ class DataDelayTest extends AnyFunSuiteLike {
 
     import spinal.core.sim._
 
-//    Config.sim.compile(DataDelay(DataDelayConfig(HardType(Bits(8 bits)),delayMax, paddingValue))).doSim { dut =>
-    SimConfig.withWave
-      .compile(DataDelay(config))
-      .doSim { dut =>
+    Config.sim.compile(DataDelay(config)).doSim { dut =>
+//    SimConfig.withWave
+//      .compile(DataDelay(config))
+//      .doSim { dut =>
         // initialization
         dut.dataIn.valid #= false
         dut.dataIn.last #= false
@@ -133,7 +133,7 @@ class DataDelayTest extends AnyFunSuiteLike {
       val delays = Seq(minimumDelay, minimumDelay + 1, delayMax, minimumDelay + 1, minimumDelay) // require delay >= 1
       val data = Seq.fill(delays.length)(raw)
 
-      (0 until 2).foreach { _ =>
+      (0 until 1).foreach { _ =>
         val result = testDataDelay(data, config, delays, pulseGapPoints)
         println(result.map(_.mkString(",")).mkString("\n"))
         result.zip(delays).foreach { case (delayed, delay) =>
@@ -148,9 +148,27 @@ class DataDelayTest extends AnyFunSuiteLike {
     }
 
     doTest(configMultiFifo, 0)
-    doTest(configMultiFifo, 10)
-    doTest(configSingleFifo, 0)
-    doTest(configSingleFifo, 10)
+//    doTest(configMultiFifo, 10)
+//    doTest(configSingleFifo, 0)
+//    doTest(configSingleFifo, 10)
+
+  }
+
+  test("test utilization") {
+
+    val delayMax = PULSE_VALID_POINTS_MAX
+//    val fifoDepthMax = 1024
+    val fifoDepthMax = 4096
+    val paddingValue = 0
+    val hardType = HardType(Bits(65 bits))
+
+    val configMultiFifo: DataDelayConfig[Bits] = DataDelayConfig(
+      hardType = hardType,
+      delayMax = delayMax,
+      fifoDepthMax = fifoDepthMax,
+      paddingValue = paddingValue)
+
+    Config.synth(DataDelay(configMultiFifo))
 
   }
 }

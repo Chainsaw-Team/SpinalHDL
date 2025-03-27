@@ -188,12 +188,16 @@ def extract_modules_and_ios(file_path):
 if __name__ == "__main__":
     # modify global configuration
     parser_config.parse_interfaces = True
-    parser_config.target_package_name = "chainsaw.projects.xdma.daq.ku060Ips"
-    # conversion
-    ip_location = "/home/ltr/IdeaProjects/SpinalHDL/KU060IP"  # your Vivado IP location
-    scala_package_path = "/home/ltr/IdeaProjects/SpinalHDL/chainsaw/src/main/scala/chainsaw/projects/xdma/daq/ku060Ips"  # your Scala Package location
-    scan_ip_location(ip_location, scala_package_path)
-
+#     # KU060IP
+#     parser_config.target_package_name = "chainsaw.projects.xdma.daq.ku060Ips"
+#     ip_location = "/home/ltr/IdeaProjects/SpinalHDL/KU060IP"  # your Vivado IP location
+#     scala_package_path = "/home/ltr/IdeaProjects/SpinalHDL/chainsaw/src/main/scala/chainsaw/projects/xdma/daq/ku060Ips"  # your Scala Package location
+#     scan_ip_location(ip_location, scala_package_path)
+#     # AXKU062 board design
+#     parser_config.target_package_name = "chainsaw.projects.xdma.daq"
+#     get_black_box("/home/ltr/IdeaProjects/SpinalHDL/Axku062Daq/Axku062Daq/Axku062Daq.gen/sources_1/bd/Peripheral/hdl/Peripheral_wrapper.v",
+#                   "/home/ltr/IdeaProjects/SpinalHDL/chainsaw/src/main/scala/chainsaw/projects/xdma/daq/Axku062Wrapper.scala")
+    # AXKU5 board design
     parser_config.target_package_name = "chainsaw.projects.xdma.daq"
-    get_black_box("/home/ltr/IdeaProjects/SpinalHDL/Axku062Daq/Axku062Daq/Axku062Daq.gen/sources_1/bd/Peripheral/hdl/Peripheral_wrapper.v",
-                  "/home/ltr/IdeaProjects/SpinalHDL/chainsaw/src/main/scala/chainsaw/projects/xdma/daq/Axku062Wrapper.scala")
+    get_black_box("/home/ltr/IdeaProjects/SpinalHDL/Axku5Daq/Axku5Daq/Axku5Daq.gen/sources_1/bd/Axku5Peripheral/hdl/Axku5Peripheral_wrapper.v",
+    "/home/ltr/IdeaProjects/SpinalHDL/chainsaw/src/main/scala/chainsaw/projects/xdma/daq/Axku5Wrapper.scala")

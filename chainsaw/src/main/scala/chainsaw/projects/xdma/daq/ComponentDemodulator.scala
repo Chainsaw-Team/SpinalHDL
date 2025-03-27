@@ -1,10 +1,9 @@
 package chainsaw.projects.xdma.daq
 
 import chainsaw.projects.xdma.daq.customizedIps.{DataDelay, DataDelayConfig}
-import chainsaw.projects.xdma.daq.ku060Ips._
+import chainsaw.projects.xdma.daq.ku060Ips.{DdsCompiler, LowpassFir}
 import spinal.core._
-import spinal.core.sim.SimDataPimper
-import spinal.lib.experimental.math.Floating32
+import spinal.lib.eda.xilinx.UltraScalePlus
 import spinal.lib.{Fragment, _}
 
 import scala.collection.Seq
@@ -13,12 +12,15 @@ import scala.math
 
 // TODO: 将module中的scaling策略同步到python工程中
 
-case class ComponentDemodulator(carrierFreq: HertzNumber, inverse: Boolean = false) extends Module {
+case class ComponentDemodulator(carrierFreq: HertzNumber, inverse: Boolean = false, ramType: String = "Block")
+    extends Module {
 
   val streamIn = slave Stream Fragment(Vec(SInt(16 bits), 2)) // x0, x1
   val streamOut = master Stream Fragment(Vec(SInt(32 bits), 4)) // r0, i0, r1, i1
   val gaugePointsIn = in UInt (log2Up(GAUGE_POINTS_MAX + 1) bits)
   val pulseValidPointsIn = in UInt (log2Up(PULSE_VALID_POINTS_MAX + 1) bits)
+
+  val fifoDepthMax = if (TARGET_DEVICE.family == UltraScalePlus) 4096 else 1024
 
   //////////
   // parameter preparation
@@ -121,7 +123,7 @@ case class ComponentDemodulator(carrierFreq: HertzNumber, inverse: Boolean = fal
   //////////
   // streamFiltered -> delay ->  streamFilteredDelayed
   val gaugeDelay = DataDelay(
-    DataDelayConfig(HardType(streamFiltered.fragment), GAUGE_POINTS_MAX, fifoDepthMax = 8192, paddingValue = 0)
+    DataDelayConfig(HardType(streamFiltered.fragment), GAUGE_POINTS_MAX, fifoDepthMax = fifoDepthMax, paddingValue = 0)
   )
   streamFiltered >> gaugeDelay.dataIn
   gaugeDelay.delayIn := gaugePointsIn
@@ -150,7 +152,12 @@ case class ComponentDemodulator(carrierFreq: HertzNumber, inverse: Boolean = fal
   //////////
   // streamStrain -> delay ->  streamStrainDelayed
   val pulseDelay = DataDelay(
-    DataDelayConfig(HardType(streamStrain.fragment), PULSE_VALID_POINTS_MAX, fifoDepthMax = 1024, frameBased = false)
+    DataDelayConfig(
+      HardType(streamStrain.fragment),
+      PULSE_VALID_POINTS_MAX,
+      fifoDepthMax = fifoDepthMax,
+      frameBased = false
+    )
   )
   streamStrain >> pulseDelay.dataIn
 //  pulseDelay.dataIn.last.allowOverride()

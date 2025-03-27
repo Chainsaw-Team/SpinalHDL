@@ -2,10 +2,10 @@ package chainsaw.projects.xdma.daq
 
 import spinal.core._
 import spinal.core.sim._
-import spinal.lib._
-import spinal.lib.sim._
-import spinal.lib.fsm._
-import spinal.lib.bus._
+
+import java.io.File
+
+// TODO: generate LZOC from local flopoco
 
 case class LZOC() extends BlackBox {
 
@@ -15,7 +15,7 @@ case class LZOC() extends BlackBox {
   val OZB = in Bool ()
   val O = out Bits (6 bits)
 
-  addRTLPath("/home/ltr/flopoco/flopoco.vhdl")
+  addRTLPath(new File(resourceDir, "LZOC.vhdl").getAbsolutePath)
 
 }
 

@@ -360,27 +360,8 @@ set_property PACKAGE_PIN K22 [get_ports fmc_lpc_2_SDA]
 # general I/O standard constraints
 ###############################################################################
 
-# user data pins are set as single-ended by default, when used as differential pairs, set them in project-specific constraints
-set_property IOSTANDARD LVCMOS18 [get_ports fmc_hpc_LA_N_4]
-set_property IOSTANDARD LVCMOS18 [get_ports fmc_hpc_LA_N_5]
-set_property IOSTANDARD LVCMOS18 [get_ports fmc_hpc_LA_N_7]
-set_property IOSTANDARD LVCMOS18 [get_ports fmc_hpc_LA_N_9]
-set_property IOSTANDARD LVCMOS18 [get_ports fmc_hpc_LA_P_11]
-set_property IOSTANDARD LVCMOS18 [get_ports fmc_hpc_LA_P_12]
-set_property IOSTANDARD LVCMOS18 [get_ports fmc_hpc_LA_P_4]
-set_property IOSTANDARD LVCMOS18 [get_ports fmc_hpc_LA_P_5]
-set_property IOSTANDARD LVCMOS18 [get_ports fmc_hpc_LA_P_7]
-set_property IOSTANDARD LVCMOS18 [get_ports fmc_hpc_LA_P_9]
-set_property IOSTANDARD LVCMOS18 [get_ports fmc_hpc_HA_*]
-set_property IOSTANDARD LVCMOS18 [get_ports fmc_lpc_1_LA_*]
-set_property IOSTANDARD LVCMOS33 [get_ports fmc_lpc_2_LA_*]
 
-set_property IOSTANDARD LVCMOS33 [get_ports fmc_lpc_2_CLK_*]
-# TODO: all IOSTANDARD constraints
 
-###############################################################################
-# project-specific constraints
-###############################################################################
 
 
 

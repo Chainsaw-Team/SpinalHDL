@@ -17,24 +17,21 @@ import spinal.lib.eda.xilinx.boards.alinx.{Axku062, Fl1010}
 import scala.language.postfixOps
 
 case class Axku062Daq() extends Axku062 {
-  // avoid "not driven" error
 
   // board connection
   val fl1010 = Fl1010(fmc_lpc_2)
   val mysoowFmc = MysoowFmc(fmc_hpc)
-
   fmc_hpc.DP_C2M_P.setAsDirectionLess() // disable unused output
   fmc_hpc.DP_C2M_N.setAsDirectionLess()
 
   val peripheral = Peripheral_wrapper()
   peripheral.sys_clk_200M := defaultClockDomain.clock
 
-  // PCIe
+  // PCIe Gen3 X 4
+  Seq(pcie.tx_n, pcie.tx_p, pcie.rx_n, pcie.rx_p).foreach(_.setWidth(4))
   peripheral.pcie_rstn := pcie.perst
   peripheral.pcie_clk_clk_n := pcie.clk_n
   peripheral.pcie_clk_clk_p := pcie.clk_p
-
-  Seq(pcie.tx_n, pcie.tx_p, pcie.rx_n, pcie.rx_p).foreach(_.setWidth(4))
 
   peripheral.pcie_mgt_rxn := pcie.rx_n
   peripheral.pcie_mgt_rxp := pcie.rx_p
@@ -53,10 +50,13 @@ case class Axku062Daq() extends Axku062 {
   mysoowFmc.hmc7044_sync := False // disabled
 
   // AD9695
+  mysoowFmc.adc1_powerdown := peripheral.ad9695PowerDown
   mysoowFmc.adc1_sclk := peripheral.ad9695_sclk
   mysoowFmc.adc1_csn := peripheral.ad9695_slen
   mysoowFmc.adc1_sdio <> peripheral.ad9695_sdio
-  mysoowFmc.adc1_powerdown := peripheral.ad9695PowerDown
+
+  mysoowFmc.ch1_dc_sw := False // AC coupling
+  mysoowFmc.ch2_dc_sw := False // AC coupling
 
   // JESD204
   val adc_core_clk = IBUFDS.Lvds2Clk(mysoowFmc.adc1_core_clk_p, mysoowFmc.adc1_core_clk_n)

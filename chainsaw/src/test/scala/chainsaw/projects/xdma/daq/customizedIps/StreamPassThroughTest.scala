@@ -2,10 +2,27 @@ package chainsaw.projects.xdma.daq.customizedIps
 
 import org.scalatest.funsuite.AnyFunSuiteLike
 import spinal.core.IntToBuilder
+import spinal.core._
 import spinal.core.sim._
 import spinal.lib.sim.{StreamDriver, StreamMonitor, StreamReadyRandomizer}
+import spinal.lib.bus.amba4.axis.{Axi4Stream, Axi4StreamConfig}
+import spinal.lib.{master, slave}
 
 import scala.language.postfixOps
+
+//package chainsaw.projects.xdma.daq.customizedIps
+
+case class StreamPassThrough() extends Module {
+
+  val dataInConfig = Axi4StreamConfig(2, useLast = true)
+  val dataIn = slave(Axi4Stream(dataInConfig))
+
+  val dataOutConfig = Axi4StreamConfig(2, useLast = true)
+  val dataOut = master(Axi4Stream(dataInConfig))
+
+  dataIn >> dataOut
+
+}
 
 /** template for simulating modules supporting Stream interface
   */
@@ -69,7 +86,8 @@ class StreamPassThroughTest extends AnyFunSuiteLike {
       }
 
       fork { // monitor thread
-        StreamReadyRandomizer(dut.dataOut, dut.clockDomain).setFactor(downstreamDutyCycle.toFloat) // downstream always ready
+        StreamReadyRandomizer(dut.dataOut, dut.clockDomain)
+          .setFactor(downstreamDutyCycle.toFloat) // downstream always ready
         val monitor = StreamMonitor(dut.dataOut, dut.clockDomain) { payload =>
           result(peekRowId)(peekColId) = payload.data.toInt
           peekColId += 1

@@ -34,6 +34,12 @@ package object daq {
   // 0.23rad <-> 0.025με / gauge length, output format fixed16_13
   val OUTPUT_STRAIN_RESOLUTION = 0.025 / 1e6 / 0.23 / (1 << 13)
 
+  val TARGET_DEVICE =
+//      new XilinxDevice(family = UltraScale, part = "XCKU060-FFVA1156-2-i".toLowerCase(), fMax = 200 MHz)
+      new XilinxDevice(family = UltraScalePlus, part = "xcku5p-ffvb676-2-i".toLowerCase(), fMax = 200 MHz)
+
+  // target device
+
   // width alongside datapath
   val shiftedSignificandWidth = DAS_DATAPATH_WIDTH + (DAS_DATAPATH_WIDTH - 1)
   val shiftedTargetWidth = DAS_DATAPATH_WIDTH
@@ -53,6 +59,7 @@ package object daq {
   )
 
   println("system parameters:")
+  println(s"target device = $TARGET_DEVICE")
   println(s"\tinterrogation rate min = ${1.0 / (PULSE_PERIOD_POINTS_MAX * 4).toDouble * 1e9} Hz")
   println(s"\tstrain/gauge length resolution = ${OUTPUT_STRAIN_RESOLUTION * 1e12}pε/m")
   println(s"\tgauge length max = ${GAUGE_POINTS_MAX * 2 * 0.2}m")
@@ -66,6 +73,7 @@ package object daq {
   val daqScalaSource = new File("./chainsaw/src/main/scala/chainsaw/projects/xdma/daq")
   val axku062DaqRtlDir = new File("./Axku062Daq")
   val axku5DaqRtlDir = new File("./Axku5Daq")
+  val resourceDir = new File("./chainsaw/src/main/resources")
 
   //////////
   // Tasks
@@ -73,8 +81,8 @@ package object daq {
   object Config { // default RTL generation &
 
     val vivadoPath = "/tools/Xilinx/Vivado/2024.1/bin"
-    val targetDevice =
-      new XilinxDevice(family = UltraScale, part = "XCKU060-FFVA1156-2-i".toLowerCase(), fMax = 200 MHz)
+
+
 
     def gen: SpinalConfig = SpinalConfig(
       targetDirectory = "hw/gen",
@@ -86,7 +94,7 @@ package object daq {
     def sim: SpinalSimConfig = { // simulation using XSim
       SimConfig.withXSim.withWave // using XSim
         .withConfig(gen)
-        .withXilinxDevice(targetDevice.part)
+        .withXilinxDevice(TARGET_DEVICE.part)
         .withXSimSourcesPaths(
           xciSourcesPaths = ArrayBuffer(),
           bdSourcesPaths = ArrayBuffer()
@@ -98,7 +106,7 @@ package object daq {
         vivadoPath = vivadoPath,
         workspacePath = "./synthWorkspace",
         rtl = Rtl(gen.generateVerilog(top)),
-        device = targetDevice,
+        device = TARGET_DEVICE,
         taskType = SYNTH
       ).get
     }
@@ -108,7 +116,7 @@ package object daq {
         vivadoPath = vivadoPath,
         workspacePath = "./synthWorkspace",
         rtl = Rtl(gen.generateVerilog(top)),
-        device = targetDevice,
+        device = TARGET_DEVICE,
         taskType = IMPL
       ).get
     }

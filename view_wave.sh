@@ -1,6 +1,6 @@
 #!/bin/bash
 
-module_name=DasDemodulator
+module_name=DataDelay
 
 current_dir="$(pwd)"
 
