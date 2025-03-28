@@ -25,3 +25,7 @@
 1. update submodule(s)
 2. update top module
 3. update block design
+4. save your changes
+   1. remove "Utility sources" from your project
+   2. create IP scripts using `write_ip_tcl` and remove "IP sources" from your project
+   3. save project using `write_project_tcl`
