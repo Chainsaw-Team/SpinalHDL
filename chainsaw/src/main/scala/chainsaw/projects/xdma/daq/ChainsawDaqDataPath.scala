@@ -37,31 +37,37 @@ case class ChainsawDaqDataPath(includeDemodulation: Boolean = true) extends Comp
   val dataOutConfig = Axi4StreamConfig(dataWidth = 8, useLast = true)
   val dataOut = master(Axi4Stream(dataOutConfig))
 
+  // pulse output
+  val pulse0, pulse1 = out Bool () // pulse output to SMA
+
+  // debug output
+  val channel0Probe, channel1Probe = out SInt (16 bits) // waveform output to ILA
+  val dataOverflow = out Bool () // indicator of overflow to ILA
+
+//  val led0, led1, led2, led3= out Bool () // pulse output to SMA
+  val hmc7044Resetn, ad9695PowerDown, jesd204Reset = out Bool () // reset output to submodules
+
+  // interface naming
   controlIn.setNameForEda()
   dataIn.setNameForEda()
   dataOut.setNameForEda()
 
-  // other outputs
-  val channel0Probe, channel1Probe = out SInt (16 bits) // waveform output to ILA
-  val dataOverflow = out Bool () // indicator of overflow to ILA
-  val pulse0, pulse1 = out Bool () // pulse output to SMA
-  val hmc7044Resetn, ad9695PowerDown, jesd204Reset = out Bool () // reset output to submodules
-
-  // controller, mainly implemented by RegisterFile
+  // register file for host control
   val controlClockingArea = new ClockingArea(controlClockDomain) {
 
     val userBaseAddr = 0x00000 // must be 0 when you use newReg rather than newRegAt
     val userBusIf = AxiLite4BusInterface(controlIn, SizeMapping(userBaseAddr, 0x10000))
 
+    // read only version register
     val versionReg = userBusIf.newRegAt(userBaseAddr, "firmware version")
     val revision = versionReg.field(UInt(8 bits), RO, resetValue = 0x00)
     val minor = versionReg.field(UInt(8 bits), RO, resetValue = 0x09)
     val major = versionReg.field(UInt(8 bits), RO, resetValue = 0x00)
     revision := 0x00
-    minor := 0x09
+    minor := 0x0a
     major := 0x00
 
-    // reset control
+    // ADC subsystem reset control
     val jesd204ResetReg = userBusIf.newReg("reset JESD204")
     val jesd204Reset = jesd204ResetReg.field(Bool(), RW, 1, "reset JESD204, asserted by default")
     val hmc7044ResetReg = userBusIf.newReg("reset HMC7044")
@@ -75,14 +81,14 @@ case class ChainsawDaqDataPath(includeDemodulation: Boolean = true) extends Comp
 
     // datapath(demodulation) control
     val datapathControlReg = userBusIf.newReg("control mux in datapath")
-    val demodulationEnabled = datapathControlReg.field(
-      Bool(),
-      RW,
-      resetValue = 0,
-      "when enabled, demodulated phase, instead of X & Y raw data will be transferred to DDR"
-    )
-    val gaugePoints =
-      datapathControlReg.field(UInt(log2Up(GAUGE_POINTS_MAX + 1) bits), RW, 50, "gauge length / 0.4m")
+    val demodulationEnabled =
+      datapathControlReg.field(Bool(), RW, resetValue = 0, "when enabled, output strain rate as demodulated phase")
+    val timeAverageEnabled =
+      datapathControlReg.field(Bool(), RW, resetValue = 0, "when enabled, time average used is algo")
+    val spatialAverageEnabled =
+      datapathControlReg.field(Bool(), RW, resetValue = 0, "when enabled, spatial average used is algo")
+
+    val gaugePoints = datapathControlReg.field(UInt(log2Up(GAUGE_POINTS_MAX + 1) bits), RW, 50, "gauge length / 0.4m")
     val pulsePulseDelayRx =
       datapathControlReg.field(
         UInt(log2Up(PULSE_PULSE_DELAY_POINTS_MAX + 1) bits),
@@ -98,6 +104,7 @@ case class ChainsawDaqDataPath(includeDemodulation: Boolean = true) extends Comp
     val pulsePulseDelayTxReg = userBusIf.newReg("pulse0 -> pulse1 duration / 4ns, tx, used when generating pulses")
     val preTriggerLengthReg = userBusIf.newReg("pre-trigger duration / 4ns")
     val postTriggerLengthReg = userBusIf.newReg("post-trigger duration / 4ns")
+    val pulseOnReg = userBusIf.newReg("controlling pulse on/off")
 
     val pulsePeriod = pulsePeriodReg.field(UInt(32 bits), RW, resetValue = 2000 * 2)
     val pulseLength = pulseLengthReg.field(UInt(32 bits), RW, resetValue = 2000)
@@ -105,6 +112,12 @@ case class ChainsawDaqDataPath(includeDemodulation: Boolean = true) extends Comp
     val pulsePulseDelayTx = pulsePulseDelayTxReg.field(UInt(32 bits), RW, 10)
     val preTriggerLength = preTriggerLengthReg.field(UInt(32 bits), RW) // FIXME: not used
     val postTriggerLength = postTriggerLengthReg.field(UInt(32 bits), RW, 0)
+    val pulse0on = pulseOnReg.field(Bool(), RW, 1)
+    val pulse1on = pulseOnReg.field(Bool(), RW, 1)
+
+    // led control
+    val ledControlReg = userBusIf.newReg("control LEDs")
+    val led0On, led1On, led2On, led3On = ledControlReg.field(Bool(), RW, 0)
 
     // document and header file generation
     userBusIf.accept(DocHtml("UserRegisterSpace"))
@@ -148,8 +161,15 @@ case class ChainsawDaqDataPath(includeDemodulation: Boolean = true) extends Comp
     val (dataValid, dataLast) = // this duration defines which part of each period we should upload to the host
       getDuration(getControlData(postTriggerLength), getControlData(postTriggerLength) + getControlData(pulseLength))
 
-    pulse0 := pulse0Valid
-    pulse1 := pulse1Valid
+    pulse0 := pulse0Valid && getControlData(pulse0on)
+//    pulse0 := pulse0Valid
+    pulse1 := pulse1Valid && getControlData(pulse1on)
+//    pulse1 := pulse1Valid
+
+//    led0 := getControlData(led0On)
+//    led1 := getControlData(led1On)
+//    led2 := getControlData(led2On)
+//    led3 := getControlData(led3On)
 
     //////////
     // data bypass / demodulation datapath
@@ -159,7 +179,7 @@ case class ChainsawDaqDataPath(includeDemodulation: Boolean = true) extends Comp
       val elements = (0 until 4).map { i =>
         val baseHigher = base + i * 8
         val baseLower = base + (i + 4) * 8
-        println(s"bits range = ${baseHigher + 7}:$baseHigher, ${baseLower + 7}:$baseLower")
+//        println(s"bits range = ${baseHigher + 7}:$baseHigher, ${baseLower + 7}:$baseLower")
         val all = bitsIn(baseHigher + 7 downto baseHigher) ## bitsIn(baseLower + 7 downto baseLower)
         val eventBits = all.takeLow(2) // TODO: record the function of event bits here
         (all.takeHigh(14) ## B("00")).asSInt
@@ -172,7 +192,7 @@ case class ChainsawDaqDataPath(includeDemodulation: Boolean = true) extends Comp
     val channelY: Vec[SInt] = mapper(dataIn.payload.data, 64) // y0, y1, y2, y3
     val Seq(x0, x1, y0, y1) = Seq(channelX(0), channelX(2), channelY(0), channelY(2)) // channel 0 & 1 1GHz -> 500MHz
 
-    // sample dataIn according to the pulse generation parameters
+    // sample dataIn according to the pulse generation parameterspulseperiodreg
     val streamRaw = Stream(Fragment(Vec(SInt(16 bits), 4)))
     streamRaw.valid := dataValid
     streamRaw.last := dataLast
@@ -183,6 +203,8 @@ case class ChainsawDaqDataPath(includeDemodulation: Boolean = true) extends Comp
     val streamDemodulated = if (includeDemodulation) {
       val daqDemodulator = DasDemodulator()
       daqDemodulator.demodulationEnabled := getControlData(demodulationEnabled)
+      daqDemodulator.timeAverageEnabled := getControlData(timeAverageEnabled)
+      daqDemodulator.spatialAverageEnabled := getControlData(spatialAverageEnabled)
       daqDemodulator.gaugePointsIn := getControlData(gaugePoints)
       daqDemodulator.pulseValidPointsIn := getControlData(pulseLength).resized
       daqDemodulator.pulsePulseDelayPointsIn := getControlData(pulsePulseDelayRx)

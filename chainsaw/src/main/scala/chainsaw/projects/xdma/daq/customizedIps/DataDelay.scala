@@ -34,7 +34,7 @@ case class DataDelayConfig[T <: Data](
   val fifoLatency = if (lowLatency) 1 else 2
   val minimumDelay =
     fifoCount * (fifoLatency + 1) // actual delay smaller than this will result in unpredictable behavior. FIXME: (fifoLatency + 1)?
-  println(s"fifoCount = $fifoCount, fifoDepth = $fifoDepth, minimumDelay = $minimumDelay")
+//  println(s"fifoCount = $fifoCount, fifoDepth = $fifoDepth, minimumDelay = $minimumDelay")
 }
 
 // TODO: timing diagram for this IP

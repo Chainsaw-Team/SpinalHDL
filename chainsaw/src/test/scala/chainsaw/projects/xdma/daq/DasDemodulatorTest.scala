@@ -1,10 +1,11 @@
 package chainsaw.projects.xdma.daq
 
 import org.scalatest.funsuite.AnyFunSuiteLike
+import spinal.core.IntToBuilder
 import spinal.core.sim._
-import spinal.core.{HertzNumber, IntToBuilder}
 import spinal.lib.sim._
 
+import java.io.File
 import scala.collection.mutable.ArrayBuffer
 import scala.language.postfixOps
 
@@ -14,12 +15,14 @@ class DasDemodulatorTest extends AnyFunSuiteLike {
   def testDasDemodulator(
       enableDemodulation: Boolean,
       pulseGapPoints: Int,
-      testConfigs: Seq[TestConfig]
+      testConfigs: Seq[TestConfig],
+      stimulusX: File,
+      stimulusY: File
   ): Array[Array[Int]] = {
 
     // reading stimulus
-    val dataAllX = NpyReader("./chainsaw-python/das/raw_data_x.npy")
-    val dataAllY = NpyReader("./chainsaw-python/das/raw_data_y.npy")
+    val dataAllX = NpyReader(stimulusX.getAbsolutePath)
+    val dataAllY = NpyReader(stimulusY.getAbsolutePath)
     val resultAllInt16 = ArrayBuffer[Array[Int]]()
 
     Config.sim.compile(DasDemodulator()).doSim { dut =>
@@ -153,8 +156,8 @@ class DasDemodulatorTest extends AnyFunSuiteLike {
         pulseCount = 5,
         pulseValidPoints = 2000,
         demodulationEnabled = 1,
-        pulsePulseDelayPoints = 100
-      ),
+        pulsePulseDelayPoints = 100,
+      )
 //      TestConfig(
 //        gaugePoints = 100,
 //        pulseCount = 5,
@@ -171,7 +174,9 @@ class DasDemodulatorTest extends AnyFunSuiteLike {
 //      )
     )
 
-    val result = testDasDemodulator(enableDemodulation = true, pulseGapPoints = 500, testConfigs)
+    val stimulusX = new File("./dataX.npy")
+    val stimulusY = new File("./dataY.npy")
+    val result = testDasDemodulator(enableDemodulation = true, pulseGapPoints = 500, testConfigs, stimulusX, stimulusY)
 
     CsvWriter(result.flatten, "full_result.bin")
 

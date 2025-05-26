@@ -29,3 +29,11 @@
    1. remove "Utility sources" from your project
    2. create IP scripts using `write_ip_tcl` and remove "IP sources" from your project
    3. save project using `write_project_tcl`
+   4. add clock binding commands before `validate_bd_design` in the script
+   5. add IP sourcing commands before "Adding sources referenced in BDs" in the script
+      ```shell
+      source ../chainsaw/src/main/resources/projectIps/Atan2.tcl
+      source ../chainsaw/src/main/resources/projectIps/DdsCompiler.tcl
+      source ../chainsaw/src/main/resources/projectIps/LowpassFir.tcl
+
+      ```

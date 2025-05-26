@@ -281,6 +281,9 @@ set_property -name "top" -value "Axku5Daq" -objects $obj
 set_property -name "top_auto_set" -value "0" -objects $obj
 set_property -name "top_lib" -value "xil_defaultlib" -objects $obj
 
+source ../chainsaw/src/main/resources/projectIps/Atan2.tcl
+source ../chainsaw/src/main/resources/projectIps/DdsCompiler.tcl
+source ../chainsaw/src/main/resources/projectIps/LowpassFir.tcl
 
 # Adding sources referenced in BDs, if not already added
 if { [get_files [list AdiSpiCtrl.v]] == "" } {
@@ -699,6 +702,13 @@ proc cr_bd_Axku5Peripheral { parentCell } {
 
   # Restore current instance
   current_bd_instance $oldCurInst
+
+  set_property CONFIG.CLK_DOMAIN Axku5Peripheral_PCIe_0_axi_aclk [get_bd_intf_pins /ChainsawDaqDataPath_0/controlIn]
+  set_property CONFIG.FREQ_HZ 125000000 [get_bd_intf_pins /ChainsawDaqDataPath_0/controlIn]
+  set_property CONFIG.CLK_DOMAIN Axku5Peripheral_jesd204_buffer_0_IBUF_DS_ODIV2 [get_bd_intf_pins /ChainsawDaqDataPath_0/dataIn]
+  set_property CONFIG.FREQ_HZ 250000000 [get_bd_intf_pins /ChainsawDaqDataPath_0/dataIn]
+  set_property CONFIG.CLK_DOMAIN Axku5Peripheral_jesd204_buffer_0_IBUF_DS_ODIV2 [get_bd_intf_pins /ChainsawDaqDataPath_0/dataOut]
+  set_property CONFIG.FREQ_HZ 250000000 [get_bd_intf_pins /ChainsawDaqDataPath_0/dataOut]
 
   validate_bd_design
   save_bd_design

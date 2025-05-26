@@ -9,20 +9,21 @@ import scala.language.postfixOps
 
 case class DasDemodulator() extends Module {
 
-//  val clk, rstn = in Bool ()
-
+  // data interface
   val streamIn = slave Stream Fragment(Vec(SInt(16 bits), 4)) // earlier data in lower index
   val streamOut = master Stream Fragment(Vec(SInt(16 bits), 4)) // earlier data in lower bits
 
+  // demodulation control
   val demodulationEnabled = in Bool () // output demodulated phase when enabled, raw data when disabled
+  val timeAverageEnabled = in Bool ()
+  val spatialAverageEnabled = in Bool ()
   val gaugePointsIn = in UInt (log2Up(GAUGE_POINTS_MAX + 1) bits)
   val pulseValidPointsIn = in UInt (log2Up(PULSE_VALID_POINTS_MAX + 1) bits)
   val pulsePulseDelayPointsIn = in UInt (log2Up(PULSE_PULSE_DELAY_POINTS_MAX + 1) bits)
 
   def change(data: Data) = RegNext(data) =/= data
-  val changed = change(demodulationEnabled) || change(gaugePointsIn) || change(pulseValidPointsIn) || change(
-    pulsePulseDelayPointsIn
-  )
+  val configs = Seq(demodulationEnabled, timeAverageEnabled, spatialAverageEnabled, gaugePointsIn, pulseValidPointsIn)
+  val changed = configs.map(change).reduce(_ || _)
 
   // constructing
   val resetCountdown = Timeout(100)
@@ -61,7 +62,7 @@ case class DasDemodulator() extends Module {
     val streamInGatedRaw = pulsePulseDelay.dataOut.translateFragmentWith(pulsePulseDelay.dataOut.fragment.last)
 
     //////////
-    // step 1: component demodulation
+    // step 2: component demodulation
     //////////
     val strainRateStreams: Seq[Stream[Fragment[Vec[SInt]]]] =
       Seq(streamInGatedRaw, streamInGatedDelayed).zip(Seq(PULSE_0_FREQS, PULSE_1_FREQS)).zip(Seq(false, true)).flatMap {
@@ -79,20 +80,8 @@ case class DasDemodulator() extends Module {
           }
       }
 
-//    val strainRateStreams: Seq[Stream[Fragment[Vec[SInt]]]] = PULSE_0_FREQS.flatMap { freq =>
-//      val demX, demY = ComponentDemodulator(freq)
-//      streamInGated.ready.allowOverride()
-//      streamInGated.translateFragmentWith(Vec(x0, x1)) >> demX.streamIn
-//      streamInGated.translateFragmentWith(Vec(y0, y1)) >> demY.streamIn
-//      Seq(demX, demY).foreach { dem =>
-//        dem.gaugePointsIn := gaugePointsIn
-//        dem.pulseValidPointsIn := pulseValidPointsIn
-//      }
-//      Seq(demX.streamOut, demY.streamOut)
-//    }
-
     //////////
-    // step 2: merge
+    // step 3: merge
     //////////
 
     def merge(streams: Seq[Stream[Fragment[Vec[SInt]]]]): Seq[Stream[Fragment[Vec[SInt]]]] = {
@@ -114,7 +103,7 @@ case class DasDemodulator() extends Module {
     val Seq(strainRateR0, strainRateI0, strainRateR1, strainRateI1) = streamMerged.fragment
 
     //////////
-    // step 3: normalization
+    // step 4: normalization
     //////////
     val normalizer0, normalizer1 = Normalize32()
     streamMerged.ready.allowOverride()
@@ -122,7 +111,7 @@ case class DasDemodulator() extends Module {
     streamMerged.translateFragmentWith(Vec(strainRateI1, strainRateR1)) >> normalizer1.dataIn
 
     //////////
-    // step 4: get phase in rad using CORDIC
+    // step 5: get phase in rad using CORDIC
     //////////
     // normalizer -> CORDIC -> streamDemodulated
     val cordic0, cordic1 = Atan2()
@@ -140,9 +129,17 @@ case class DasDemodulator() extends Module {
     ) >> demodulatedStream
     cordic1.m_axis_dout.ready := demodulatedStream.ready
 
+    //////////
+    // TODO: step 6: time average
+    //////////
+
+    //////////
+    // TODO: step 7: spatial average
+    //////////
+
     streamInGated.ready.set() // no back pressure
 
-    // output
+    // output mux
     when(demodulationEnabled) {
       rawStream.ready.set()
       demodulatedStream <> streamOut
@@ -162,5 +159,6 @@ case class DasDemodulator() extends Module {
 }
 
 object DasDemodulator extends App {
-  Config.gen.generateVerilog(DasDemodulator())
+//  Config.gen.generateVerilog(DasDemodulator())
+  Config.synth(DasDemodulator())
 }

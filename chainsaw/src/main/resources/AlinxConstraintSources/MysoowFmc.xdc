@@ -6,7 +6,14 @@ set_property IOSTANDARD LVDS [get_ports fmc_hpc_LA_P_1]
 set_property IOSTANDARD LVDS [get_ports fmc_hpc_LA_N_1]
 set_property IOSTANDARD LVDS [get_ports fmc_hpc_LA_P_3]
 set_property IOSTANDARD LVDS [get_ports fmc_hpc_LA_N_3]
+
+# AC/DC switch
+set_property IOSTANDARD LVCMOS18 [get_ports fmc_hpc_LA_P_10]
+set_property IOSTANDARD LVCMOS18 [get_ports fmc_hpc_LA_N_10]
+
 set_property IOSTANDARD LVDS [get_ports fmc_hpc_CLK_M2C_P_0]
 set_property IOSTANDARD LVDS [get_ports fmc_hpc_CLK_M2C_N_0]
 set_property IOSTANDARD LVDS [get_ports fmc_hpc_CLK_M2C_P_1]
 set_property IOSTANDARD LVDS [get_ports fmc_hpc_CLK_M2C_N_1]
+
+

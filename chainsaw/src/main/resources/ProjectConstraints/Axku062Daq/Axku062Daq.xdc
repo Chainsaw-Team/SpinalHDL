@@ -13,6 +13,8 @@ set_property IOSTANDARD LVCMOS18 [get_ports fmc_hpc_LA_P_4]
 set_property IOSTANDARD LVCMOS18 [get_ports fmc_hpc_LA_P_5]
 set_property IOSTANDARD LVCMOS18 [get_ports fmc_hpc_LA_P_7]
 set_property IOSTANDARD LVCMOS18 [get_ports fmc_hpc_LA_P_9]
+
+
 set_property IOSTANDARD LVCMOS18 [get_ports fmc_hpc_HA_*]
 set_property IOSTANDARD LVCMOS18 [get_ports fmc_lpc_1_LA_*]
 set_property IOSTANDARD LVCMOS33 [get_ports fmc_lpc_2_LA_*]

@@ -35,8 +35,8 @@ package object daq {
   val OUTPUT_STRAIN_RESOLUTION = 0.025 / 1e6 / 0.23 / (1 << 13)
 
   val TARGET_DEVICE =
-//      new XilinxDevice(family = UltraScale, part = "XCKU060-FFVA1156-2-i".toLowerCase(), fMax = 200 MHz)
-      new XilinxDevice(family = UltraScalePlus, part = "xcku5p-ffvb676-2-i".toLowerCase(), fMax = 200 MHz)
+    new XilinxDevice(family = UltraScale, part = "XCKU060-FFVA1156-2-i".toLowerCase(), fMax = 200 MHz)
+//    new XilinxDevice(family = UltraScalePlus, part = "xcku5p-ffvb676-2-i".toLowerCase(), fMax = 200 MHz)
 
   // target device
 
@@ -59,12 +59,12 @@ package object daq {
   )
 
   println("system parameters:")
-  println(s"target device = $TARGET_DEVICE")
+  println(s"target device = ${TARGET_DEVICE.part}")
   println(s"\tinterrogation rate min = ${1.0 / (PULSE_PERIOD_POINTS_MAX * 4).toDouble * 1e9} Hz")
   println(s"\tstrain/gauge length resolution = ${OUTPUT_STRAIN_RESOLUTION * 1e12}pε/m")
   println(s"\tgauge length max = ${GAUGE_POINTS_MAX * 2 * 0.2}m")
   println(s"\tfiber length max = ${PULSE_VALID_POINTS_MAX * 2 * 0.2}m")
-  println(s"\tpulse-pulse delay max = ${PULSE_PULSE_DELAY_POINTS_MAX * 2 * 0.2}ns")
+  println(s"\tpulse-pulse delay max = ${PULSE_PULSE_DELAY_POINTS_MAX * 2 * 2}ns")
   println()
 
   //////////
@@ -81,8 +81,6 @@ package object daq {
   object Config { // default RTL generation &
 
     val vivadoPath = "/tools/Xilinx/Vivado/2024.1/bin"
-
-
 
     def gen: SpinalConfig = SpinalConfig(
       targetDirectory = "hw/gen",
@@ -226,7 +224,7 @@ package object daq {
       pulseCount: Int,
       pulseValidPoints: Int,
       demodulationEnabled: Int = 0,
-      pulsePulseDelayPoints: Int = 100,
+      pulsePulseDelayPoints: Int = 100
   )
 
 }

@@ -5,34 +5,25 @@ import spinal.lib.CounterFreeRun
 import spinal.lib.blackbox.xilinx.ultrascale.{IBUFDS, OBUFDS}
 import spinal.lib.eda.xilinx.boards.alinx.{Axku062, Fl1010}
 
-// TODO: FL1010 & GPU module
-// useful tcl commands
-
-// generate memory configuration file
-// write_cfgmem  -format bin -size 32 -interface SPIx8 -loadbit {up 0x00000000 "C:/Users/lsfan/Desktop/Axku062Daq/Axku062Daq.runs/impl_1/Axku062Daq.bit" } -force -file "C:/Users/lsfan/Desktop/Axku062Daq/Axku062Daq.runs/impl_1/Axku062Daq.bin"
-
-// save project
-// write_project_tcl -force ../<project name>.tcl
-
 import scala.language.postfixOps
 
 case class Axku062Daq() extends Axku062 {
 
   // board connection
-  val fl1010 = Fl1010(fmc_lpc_2)
-  val mysoowFmc = MysoowFmc(fmc_hpc)
+  val fl1010 = Fl1010(fmc_lpc_2) // connect FL1010 with LPC2
+  val mysoowFmc = MysoowFmc(fmc_hpc) // connect mysoow ADC FMC with HPC
+
   fmc_hpc.DP_C2M_P.setAsDirectionLess() // disable unused output
   fmc_hpc.DP_C2M_N.setAsDirectionLess()
 
   val peripheral = Peripheral_wrapper()
   peripheral.sys_clk_200M := defaultClockDomain.clock
 
-  // PCIe Gen3 X 4
+  // PCIe Gen3 X 4 // TODO: redesign as X8
   Seq(pcie.tx_n, pcie.tx_p, pcie.rx_n, pcie.rx_p).foreach(_.setWidth(4))
   peripheral.pcie_rstn := pcie.perst
   peripheral.pcie_clk_clk_n := pcie.clk_n
   peripheral.pcie_clk_clk_p := pcie.clk_p
-
   peripheral.pcie_mgt_rxn := pcie.rx_n
   peripheral.pcie_mgt_rxp := pcie.rx_p
   pcie.tx_n := peripheral.pcie_mgt_txn
@@ -67,6 +58,7 @@ case class Axku062Daq() extends Axku062 {
   peripheral.jesd204_refclk_clk_p := mysoowFmc.adc1_mgt_clk_p
   peripheral.jesd204_refclk_clk_n := mysoowFmc.adc1_mgt_clk_n
   peripheral.jesd204_rx_sysref := adc_sysref
+
   peripheral.jesd204_rxp := mysoowFmc.adc1_data_p
   peripheral.jesd204_rxn := mysoowFmc.adc1_data_n
   mysoowFmc.adc1_sync_p := adcSyncP
@@ -78,50 +70,10 @@ case class Axku062Daq() extends Axku062 {
   fl1010.J2_P.last.asOutput() := peripheral.pulse_gen_1
   fl1010.J2_N.last.asOutput() := False
 
-  // DEBUG
-//  val debugClockingArea = new ClockingArea(defaultClockDomain) { // TODO: need constraint
-//    val divider_factor = 200000 // 200MHz -> 1KHz
-//    val divider = CounterFreeRun(divider_factor)
-//    val clkSlow = RegNext(divider.value < (divider_factor / 2)) // for ILA monitoring low speed signal
-//    fl1010.J2_P(1).asOutput() := RegNext(divider.value < (divider_factor / 2))
-//    fl1010.J2_N(1).asOutput() := RegNext(divider.value >= (divider_factor / 2))
-//
-//    // HMC7044 output
-//    fl1010.J2_P(2).asOutput() := adc_sysref
-//    fl1010.J2_N(2).asOutput() := False
-//    fl1010.J2_P(3).asOutput() := adc_core_clk
-//    fl1010.J2_N(3).asOutput() := False
-//
-//    val slowClockDomain: ClockDomain = {
-//      // LVDS CLK -> single ended clk
-//      val clk = clkSlow
-//      val clockDomainConfig: ClockDomainConfig =
-//        ClockDomainConfig(clockEdge = RISING, resetKind = BOOT, resetActiveLevel = LOW)
-//      new ClockDomain(clock = clk, config = clockDomainConfig, frequency = FixedFrequency(device.fMax / divider_factor))
-//    }
-//
-//    new ClockingArea(slowClockDomain) { // TODO: need constraint
-//      val irigB, locationRx, locationTx = Reg(Bool())
-//      Seq(irigB, locationRx, locationTx).foreach(_.addAttribute("mark_debug", "true"))
-//      irigB := RegNext(fl1010.J2_P(4).asInput())
-//      locationTx := RegNext(fl1010.J2_P(5).asInput())
-//      fl1010.J2_N(5).asOutput() := RegNext(locationRx)
-//      locationRx.set()
-//      irigB.setName("irigB")
-//      locationTx.setName("locationTx")
-//      locationRx.setName("locationRx")
-//    }
-//
-//    // LEDs
-//    led.assignDontCare()
-//    led(0) := peripheral.pcie_link_up
-//    led(1) := peripheral.ddr4_init_done
-//    led(2) := ~mysoowFmc.hmc7044_gpio3
-//    led(3) := ~mysoowFmc.hmc7044_gpio4
-//
-//    led_test.clearAll()
-//
-//    // SMAs
-//    sma_clk_p.asOutput() := peripheral.data_clk
-//  }
+}
+
+object Axku062Daq {
+  def main(args: Array[String]): Unit = {
+    SpinalConfig().generateVerilog(Axku062Daq())
+  }
 }
